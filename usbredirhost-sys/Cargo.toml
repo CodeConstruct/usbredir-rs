@@ -1,0 +1,16 @@
+[package]
+name = "usbredirhost-sys"
+version = "0.0.1"
+authors = [ "Marc-André Lureau <marcandre.lureau@redhat.com>" ]
+description = "FFI bindings for usbredirhost."
+license-file = "LICENSE"
+build = "build.rs"
+links = "usbredirhost"
+edition = "2018"
+
+[build-dependencies]
+pkg-config = "0.3.2"
+
+[dependencies]
+libusb1-sys = { version = "0.5.0" }
+usbredirparser-sys = { path = "../usbredirparser-sys" }

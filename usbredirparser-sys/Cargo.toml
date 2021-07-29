@@ -1,0 +1,12 @@
+[package]
+name = "usbredirparser-sys"
+version = "0.0.1"
+authors = [ "Marc-André Lureau <marcandre.lureau@redhat.com>" ]
+description = "FFI bindings for usbredirparser."
+license-file = "LICENSE"
+build = "build.rs"
+links = "usbredirparser"
+edition = "2018"
+
+[build-dependencies]
+pkg-config = "0.3.2"

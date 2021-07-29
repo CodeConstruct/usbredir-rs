@@ -150,7 +150,6 @@ fn bindgen_test_layout_usb_redir_header() {
     );
 }
 #[repr(C, packed)]
-#[derive(Debug)]
 pub struct usb_redir_hello_header {
     pub version: [::std::os::raw::c_char; 64usize],
     pub capabilities: __IncompleteArrayField<u32>,

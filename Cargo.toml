@@ -1,5 +1,6 @@
 [workspace]
 members = [
         "usbredirparser-sys",
+        "usbredirparser",
         "usbredirhost-sys",
 ]

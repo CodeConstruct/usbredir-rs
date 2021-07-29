@@ -1,0 +1,8 @@
+[package]
+name = "usbredirparser"
+version = "0.0.1"
+authors = [ "Marc-André Lureau <marcandre.lureau@redhat.com>" ]
+edition = "2018"
+
+[dependencies]
+ffi = {package = "usbredirparser-sys", path = "../usbredirparser-sys"}

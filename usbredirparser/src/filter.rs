@@ -1,5 +1,5 @@
+use std::ffi::{CStr, CString};
 use std::fmt;
-use std::ffi::{CString, CStr};
 use std::str::FromStr;
 
 use crate::{Error, Result};
@@ -19,34 +19,38 @@ impl FilterRules {
     pub const DEFAULT_ALLOW: u32 = ffi::usbredirfilter_fl_default_allow;
     pub const DONT_SKIP_NONBOOT_HID: u32 = ffi::usbredirfilter_fl_dont_skip_non_boot_hid;
 
-    pub fn check(&self,
-                 device_class: u8,
-                 device_subclass: u8,
-                 device_protocol: u8,
-                 interfaces: Vec<Interface>,
-                 vendor_id: u16,
-                 product_id: u16,
-                 device_version_bcd: u16,
-                 flags: u32) -> Result<()> {
+    pub fn check(
+        &self,
+        device_class: u8,
+        device_subclass: u8,
+        device_protocol: u8,
+        interfaces: Vec<Interface>,
+        vendor_id: u16,
+        product_id: u16,
+        device_version_bcd: u16,
+        flags: u32,
+    ) -> Result<()> {
         let mut interface_class: Vec<_> = interfaces.iter().map(|i| i.class).collect();
         let mut interface_subclass: Vec<_> = interfaces.iter().map(|i| i.subclass).collect();
         let mut interface_protocol: Vec<_> = interfaces.iter().map(|i| i.protocol).collect();
         let interface_count = interfaces.len();
-        let ret = unsafe { ffi::usbredirfilter_check(
-            self.rules.as_ptr(),
-            self.rules.len() as _,
-            device_class,
-            device_subclass,
-            device_protocol,
-            interface_class.as_mut_ptr(),
-            interface_subclass.as_mut_ptr(),
-            interface_protocol.as_mut_ptr(),
-            interface_count as _,
-            vendor_id,
-            product_id,
-            device_version_bcd,
-            flags as _,
-        ) };
+        let ret = unsafe {
+            ffi::usbredirfilter_check(
+                self.rules.as_ptr(),
+                self.rules.len() as _,
+                device_class,
+                device_subclass,
+                device_protocol,
+                interface_class.as_mut_ptr(),
+                interface_subclass.as_mut_ptr(),
+                interface_protocol.as_mut_ptr(),
+                interface_count as _,
+                vendor_id,
+                product_id,
+                device_version_bcd,
+                flags as _,
+            )
+        };
         match -ret {
             0 => Ok(()),
             libc::EINVAL => Err(Error::InvalidParameters),
@@ -67,7 +71,12 @@ impl fmt::Display for FilterRules {
             let rules = self.rules.as_ptr();
             let token_sep = CString::new(",").unwrap();
             let rule_sep = CString::new("|").unwrap();
-            let s = ffi::usbredirfilter_rules_to_string(rules, self.rules.len() as _, token_sep.as_ptr(), rule_sep.as_ptr());
+            let s = ffi::usbredirfilter_rules_to_string(
+                rules,
+                self.rules.len() as _,
+                token_sep.as_ptr(),
+                rule_sep.as_ptr(),
+            );
             if s.is_null() {
                 return Err(fmt::Error);
             }
@@ -78,7 +87,6 @@ impl fmt::Display for FilterRules {
         }
     }
 }
-
 
 impl FromStr for FilterRules {
     type Err = Error;

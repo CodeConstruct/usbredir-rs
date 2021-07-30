@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 ffi = {package = "usbredirparser-sys", path = "../usbredirparser-sys"}
+libc = "0.2.92"

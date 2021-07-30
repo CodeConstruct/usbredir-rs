@@ -1,8 +1,41 @@
-use std::{ffi::CString, os::unix::net::UnixDatagram, sync::{Mutex, MutexGuard}};
+use std::{
+    ffi::CString,
+    os::unix::net::UnixDatagram,
+    sync::{Mutex, MutexGuard},
+};
+
+use crate::{Error, FilterRules, Result};
 
 pub trait ParserHandler {
     fn log(&mut self);
 }
+
+pub type DeviceConnect = ffi::usb_redir_device_connect_header;
+pub type InterfaceInfo = ffi::usb_redir_interface_info_header;
+pub type EPInfo = ffi::usb_redir_ep_info_header;
+pub type SetConfiguration = ffi::usb_redir_set_configuration_header;
+pub type ConfigurationStatus = ffi::usb_redir_configuration_status_header;
+pub type SetAltSetting = ffi::usb_redir_set_alt_setting_header;
+pub type GetAltSetting = ffi::usb_redir_get_alt_setting_header;
+pub type AltSettingStatus = ffi::usb_redir_alt_setting_status_header;
+pub type StartIsoStream = ffi::usb_redir_start_iso_stream_header;
+pub type StopIsoStream = ffi::usb_redir_stop_iso_stream_header;
+pub type IsoStreamStatus = ffi::usb_redir_iso_stream_status_header;
+pub type StartInterruptReceiving = ffi::usb_redir_start_interrupt_receiving_header;
+pub type StopInterruptReceiving = ffi::usb_redir_stop_interrupt_receiving_header;
+pub type InterruptReceivingStatus = ffi::usb_redir_interrupt_receiving_status_header;
+pub type AllocBulkStreams = ffi::usb_redir_alloc_bulk_streams_header;
+pub type FreeBulkStreams = ffi::usb_redir_free_bulk_streams_header;
+pub type BulkStreamsStatus = ffi::usb_redir_bulk_streams_status_header;
+pub type StartBulkReceiving = ffi::usb_redir_start_bulk_receiving_header;
+pub type StopBulkReceiving = ffi::usb_redir_stop_bulk_receiving_header;
+pub type BulkReceivingStatus = ffi::usb_redir_bulk_receiving_status_header;
+
+pub type ControlPacket = ffi::usb_redir_control_packet_header;
+pub type BulkPacket = ffi::usb_redir_bulk_packet_header;
+pub type IsoPacket = ffi::usb_redir_iso_packet_header;
+pub type InterruptPacket = ffi::usb_redir_interrupt_packet_header;
+pub type BufferedBulkPacket = ffi::usb_redir_buffered_bulk_packet_header;
 
 #[derive(Debug)]
 pub struct Parser<H> {
@@ -10,17 +43,27 @@ pub struct Parser<H> {
     handler: Box<H>,
 }
 
-impl<H: ParserHandler> Parser<H> {
-    pub const FLAG_USB_HOST: u32 = ffi::usbredirparser_fl_usb_host;
-    pub const FLAG_WRITE_CBS_OWNS_BUFFER: u32 = ffi::usbredirparser_fl_write_cb_owns_buffer;
-    pub const FLAG_NO_HELLO: u32 = ffi::usbredirparser_fl_no_hello;
+pub struct ParserState {
+    buf: *mut u8,
+    len: i32,
+}
 
+impl Drop for ParserState {
+    fn drop(&mut self) {
+        unsafe {
+            libc::free(self.buf as *mut _);
+        }
+    }
+}
+
+impl<H: ParserHandler> Parser<H> {
     pub fn new(handler: H) -> Self {
         let mut parser = unsafe { ffi::usbredirparser_create() };
         assert!(!parser.is_null());
         let handler = Box::new(handler);
         let priv_ = &*handler as *const H as *mut _;
         unsafe {
+            (*parser).priv_ = priv_;
             (*parser).log_func = Some(log);
             (*parser).read_func = Some(read);
             (*parser).write_func = Some(write);
@@ -61,7 +104,6 @@ impl<H: ParserHandler> Parser<H> {
             (*parser).stop_bulk_receiving_func = Some(stop_bulk_receiving);
             (*parser).bulk_receiving_status_func = Some(bulk_receiving_status);
             (*parser).buffered_bulk_packet_func = Some(buffered_bulk_packet);
-            (*parser).priv_ = priv_;
         }
 
         let flags = 0;
@@ -70,6 +112,370 @@ impl<H: ParserHandler> Parser<H> {
         unsafe { ffi::usbredirparser_init(parser, version.as_ptr(), &mut caps as _, 1, flags) }
 
         Self { parser, handler }
+    }
+
+    pub fn has_cap(&self, cap: u32) -> bool {
+        unsafe { ffi::usbredirparser_have_cap(self.parser, cap as _) == 1 }
+    }
+
+    pub fn have_peer_caps(&self) -> bool {
+        unsafe { ffi::usbredirparser_have_peer_caps(self.parser) == 1 }
+    }
+
+    pub fn peer_has_cap(&self, cap: u32) -> bool {
+        unsafe { ffi::usbredirparser_peer_has_cap(self.parser, cap as _) == 1 }
+    }
+
+    pub fn do_read(&self) -> Result<()> {
+        let ret = unsafe { ffi::usbredirparser_do_read(self.parser) };
+        match ret {
+            0 => Ok(()),
+            ffi::usbredirparser_read_io_error => Err(Error::ReadIO),
+            ffi::usbredirparser_read_parse_error => Err(Error::ReadParse),
+            _ => panic!(),
+        }
+    }
+
+    pub fn has_data_to_write(&self) -> i32 {
+        unsafe { ffi::usbredirparser_has_data_to_write(self.parser) }
+    }
+
+    pub fn do_write(&self) -> Result<()> {
+        let ret = unsafe { ffi::usbredirparser_do_write(self.parser) };
+        match ret {
+            0 => Ok(()),
+            ffi::usbredirparser_write_io_error => Err(Error::WriteIO),
+            _ => panic!(),
+        }
+    }
+
+    pub fn send_device_connect(&self, device_connect: &DeviceConnect) {
+        unsafe {
+            ffi::usbredirparser_send_device_connect(
+                self.parser,
+                device_connect as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_device_disconnect(&self) {
+        unsafe { ffi::usbredirparser_send_device_disconnect(self.parser) }
+    }
+
+    pub fn send_reset(&self) {
+        unsafe { ffi::usbredirparser_send_reset(self.parser) }
+    }
+
+    pub fn send_interface_info(&self, interface_info: &InterfaceInfo) {
+        unsafe {
+            ffi::usbredirparser_send_interface_info(
+                self.parser,
+                interface_info as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_ep_info(&self, ep_info: &EPInfo) {
+        unsafe { ffi::usbredirparser_send_ep_info(self.parser, ep_info as *const _ as *mut _) }
+    }
+
+    pub fn send_set_configuration(&self, id: u64, set_configuration: &SetConfiguration) {
+        unsafe {
+            ffi::usbredirparser_send_set_configuration(
+                self.parser,
+                id,
+                set_configuration as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_get_configuration(&self, id: u64) {
+        unsafe { ffi::usbredirparser_send_get_configuration(self.parser, id) }
+    }
+
+    pub fn send_configuration_status(&self, id: u64, configuration_status: &ConfigurationStatus) {
+        unsafe {
+            ffi::usbredirparser_send_configuration_status(
+                self.parser,
+                id,
+                configuration_status as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_set_alt_setting(&self, id: u64, set_alt_setting: &SetAltSetting) {
+        unsafe {
+            ffi::usbredirparser_send_set_alt_setting(
+                self.parser,
+                id,
+                set_alt_setting as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_get_alt_setting(&self, id: u64, get_alt_setting: &GetAltSetting) {
+        unsafe {
+            ffi::usbredirparser_send_get_alt_setting(
+                self.parser,
+                id,
+                get_alt_setting as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_alt_setting_status(&self, id: u64, alt_setting_status: &AltSettingStatus) {
+        unsafe {
+            ffi::usbredirparser_send_alt_setting_status(
+                self.parser,
+                id,
+                alt_setting_status as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_start_iso_stream(&self, id: u64, start_iso_stream: &StartIsoStream) {
+        unsafe {
+            ffi::usbredirparser_send_start_iso_stream(
+                self.parser,
+                id,
+                start_iso_stream as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_stop_iso_stream(&self, id: u64, stop_iso_stream: &StopIsoStream) {
+        unsafe {
+            ffi::usbredirparser_send_stop_iso_stream(
+                self.parser,
+                id,
+                stop_iso_stream as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_iso_stream_status(&self, id: u64, iso_stream_status: &IsoStreamStatus) {
+        unsafe {
+            ffi::usbredirparser_send_iso_stream_status(
+                self.parser,
+                id,
+                iso_stream_status as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_start_interrupt_receiving(
+        &self,
+        id: u64,
+        start_interrupt_receiving: &StartInterruptReceiving,
+    ) {
+        unsafe {
+            ffi::usbredirparser_send_start_interrupt_receiving(
+                self.parser,
+                id,
+                start_interrupt_receiving as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_stop_interrupt_receiving(
+        &self,
+        id: u64,
+        stop_interrupt_receiving: &StopInterruptReceiving,
+    ) {
+        unsafe {
+            ffi::usbredirparser_send_stop_interrupt_receiving(
+                self.parser,
+                id,
+                stop_interrupt_receiving as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_interrupt_receiving_status(
+        &self,
+        id: u64,
+        interrupt_receiving_status: &InterruptReceivingStatus,
+    ) {
+        unsafe {
+            ffi::usbredirparser_send_interrupt_receiving_status(
+                self.parser,
+                id,
+                interrupt_receiving_status as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_alloc_bulk_stream(&self, id: u64, alloc_bulk_streams: &AllocBulkStreams) {
+        unsafe {
+            ffi::usbredirparser_send_alloc_bulk_streams(
+                self.parser,
+                id,
+                alloc_bulk_streams as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_free_bulk_streams(&self, id: u64, free_bulk_streams: &FreeBulkStreams) {
+        unsafe {
+            ffi::usbredirparser_send_free_bulk_streams(
+                self.parser,
+                id,
+                free_bulk_streams as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_bulk_streams_status(&self, id: u64, bulk_streams_status: &BulkStreamsStatus) {
+        unsafe {
+            ffi::usbredirparser_send_bulk_streams_status(
+                self.parser,
+                id,
+                bulk_streams_status as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_cancel_data_packet(&self, id: u64) {
+        unsafe {
+            ffi::usbredirparser_send_cancel_data_packet(self.parser, id);
+        }
+    }
+
+    pub fn send_filter_reject(&self) {
+        unsafe {
+            ffi::usbredirparser_send_filter_reject(self.parser);
+        }
+    }
+
+    pub fn send_filter_filter(&self, filter: &FilterRules) {
+        unsafe {
+            ffi::usbredirparser_send_filter_filter(
+                self.parser,
+                filter.rules.as_ptr(),
+                filter.rules.len() as _,
+            );
+        }
+    }
+
+    pub fn send_start_bulk_receiving(&self, id: u64, start_bulk_receiving: &StartBulkReceiving) {
+        unsafe {
+            ffi::usbredirparser_send_start_bulk_receiving(
+                self.parser,
+                id,
+                start_bulk_receiving as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_stop_bulk_receiving(&self, id: u64, stop_bulk_receiving: &StopBulkReceiving) {
+        unsafe {
+            ffi::usbredirparser_send_stop_bulk_receiving(
+                self.parser,
+                id,
+                stop_bulk_receiving as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_bulk_receiving_status(&self, id: u64, bulk_receiving_status: &BulkReceivingStatus) {
+        unsafe {
+            ffi::usbredirparser_send_bulk_receiving_status(
+                self.parser,
+                id,
+                bulk_receiving_status as *const _ as *mut _,
+            )
+        }
+    }
+
+    pub fn send_control_packet(&self, id: u64, control_packet: &ControlPacket, data: &[u8]) {
+        unsafe {
+            ffi::usbredirparser_send_control_packet(
+                self.parser,
+                id,
+                control_packet as *const _ as *mut _,
+                data.as_ptr() as *const _ as *mut _,
+                data.len() as _,
+            )
+        }
+    }
+
+    pub fn send_bulk_packet(&self, id: u64, bulk_packet: &BulkPacket, data: &[u8]) {
+        unsafe {
+            ffi::usbredirparser_send_bulk_packet(
+                self.parser,
+                id,
+                bulk_packet as *const _ as *mut _,
+                data.as_ptr() as *const _ as *mut _,
+                data.len() as _,
+            )
+        }
+    }
+
+    pub fn send_iso_packet(&self, id: u64, iso_packet: &IsoPacket, data: &[u8]) {
+        unsafe {
+            ffi::usbredirparser_send_iso_packet(
+                self.parser,
+                id,
+                iso_packet as *const _ as *mut _,
+                data.as_ptr() as *const _ as *mut _,
+                data.len() as _,
+            )
+        }
+    }
+
+    pub fn send_interrupt_packet(&self, id: u64, interrupt_packet: &InterruptPacket, data: &[u8]) {
+        unsafe {
+            ffi::usbredirparser_send_interrupt_packet(
+                self.parser,
+                id,
+                interrupt_packet as *const _ as *mut _,
+                data.as_ptr() as *const _ as *mut _,
+                data.len() as _,
+            )
+        }
+    }
+
+    pub fn send_buffered_bulk_packet(
+        &self,
+        id: u64,
+        buffered_packet: &BufferedBulkPacket,
+        data: &[u8],
+    ) {
+        unsafe {
+            ffi::usbredirparser_send_buffered_bulk_packet(
+                self.parser,
+                id,
+                buffered_packet as *const _ as *mut _,
+                data.as_ptr() as *const _ as *mut _,
+                data.len() as _,
+            )
+        }
+    }
+
+    pub fn serialize(&self) -> Result<ParserState> {
+        let buf = std::ptr::null_mut();
+        let len = 0;
+        let ret = unsafe {
+            ffi::usbredirparser_serialize(
+                self.parser,
+                &buf as *const _ as *mut _,
+                &len as *const _ as *mut _,
+            )
+        };
+        match ret {
+            0 => Ok(ParserState { buf, len }),
+            -1 => Err(Error::Failed),
+            _ => panic!(),
+        }
+    }
+
+    pub fn deserialize(&self, state: &ParserState) -> Result<()> {
+        let ret = unsafe { ffi::usbredirparser_unserialize(self.parser, state.buf, state.len) };
+        match ret {
+            0 => Ok(()),
+            -1 => Err(Error::Failed),
+            _ => panic!(),
+        }
     }
 }
 
@@ -113,15 +519,11 @@ extern "C" fn device_connect(
     unimplemented!()
 }
 
-extern "C" fn device_disconnect(
-    priv_: *mut ::std::os::raw::c_void,
-) {
+extern "C" fn device_disconnect(priv_: *mut ::std::os::raw::c_void) {
     unimplemented!()
 }
 
-extern "C" fn reset(
-    priv_: *mut ::std::os::raw::c_void,
-) {
+extern "C" fn reset(priv_: *mut ::std::os::raw::c_void) {
     unimplemented!()
 }
 
@@ -297,15 +699,11 @@ extern "C" fn interrupt_packet(
     unimplemented!()
 }
 
-extern "C" fn hello(
-    priv_: *mut ::std::os::raw::c_void, hello: *mut ffi::usb_redir_hello_header
-) {
+extern "C" fn hello(priv_: *mut ::std::os::raw::c_void, hello: *mut ffi::usb_redir_hello_header) {
     unimplemented!()
 }
 
-extern "C" fn filter_reject(
-    priv_: *mut ::std::os::raw::c_void,
-) {
+extern "C" fn filter_reject(priv_: *mut ::std::os::raw::c_void) {
     unimplemented!()
 }
 
@@ -317,9 +715,7 @@ extern "C" fn filter_filter(
     unimplemented!()
 }
 
-extern "C" fn device_disconnect_ack(
-    priv_: *mut ::std::os::raw::c_void,
-) {
+extern "C" fn device_disconnect_ack(priv_: *mut ::std::os::raw::c_void) {
     unimplemented!()
 }
 
@@ -366,7 +762,6 @@ extern "C" fn alloc_lock() -> *mut ::std::os::raw::c_void {
     let lock = Box::new(Lock {
         mutex: Mutex::new(()),
         guard: None,
-
     });
     Box::into_raw(lock) as _
 }

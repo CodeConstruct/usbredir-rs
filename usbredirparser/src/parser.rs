@@ -758,7 +758,7 @@ struct Lock {
     guard: Option<MutexGuard<'static, ()>>,
 }
 
-extern "C" fn alloc_lock() -> *mut ::std::os::raw::c_void {
+pub extern "C" fn alloc_lock() -> *mut ::std::os::raw::c_void {
     let lock = Box::new(Lock {
         mutex: Mutex::new(()),
         guard: None,
@@ -766,19 +766,19 @@ extern "C" fn alloc_lock() -> *mut ::std::os::raw::c_void {
     Box::into_raw(lock) as _
 }
 
-extern "C" fn free_lock(ptr: *mut ::std::os::raw::c_void) {
+pub extern "C" fn free_lock(ptr: *mut ::std::os::raw::c_void) {
     let lock: Box<Lock> = unsafe { Box::from_raw(ptr as _) };
     drop(lock);
 }
 
-extern "C" fn lock(ptr: *mut ::std::os::raw::c_void) {
+pub extern "C" fn lock(ptr: *mut ::std::os::raw::c_void) {
     let mut lock: Box<Lock> = unsafe { Box::from_raw(ptr as _) };
     let guard = unsafe { std::mem::transmute(lock.mutex.lock().unwrap()) };
     lock.guard = Some(guard);
     std::mem::forget(lock);
 }
 
-extern "C" fn unlock(ptr: *mut ::std::os::raw::c_void) {
+pub extern "C" fn unlock(ptr: *mut ::std::os::raw::c_void) {
     let mut lock: Box<Lock> = unsafe { Box::from_raw(ptr as _) };
     lock.guard.take();
     std::mem::forget(lock);

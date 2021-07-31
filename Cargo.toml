@@ -3,4 +3,5 @@ members = [
         "usbredirparser-sys",
         "usbredirparser",
         "usbredirhost-sys",
+        "usbredirhost",
 ]

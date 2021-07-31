@@ -3,6 +3,13 @@
 pub use libusb1_sys;
 pub use usbredirparser_sys;
 
+pub const usbredirhost_read_io_error: ::std::os::raw::c_int = -1;
+pub const usbredirhost_parse_error: ::std::os::raw::c_int = -2;
+pub const usbredirhost_device_rejected: ::std::os::raw::c_int = -3;
+pub const usbredirhost_device_lost: ::std::os::raw::c_int = -4;
+
+pub const usbredirhost_write_io_error: ::std::os::raw::c_int = -1;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct usbredirhost {

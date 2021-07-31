@@ -51,6 +51,10 @@ impl FilterRules {
                 flags as _,
             )
         };
+        Self::return_to_result(ret)
+    }
+
+    pub fn return_to_result(ret: i32) -> Result<()> {
         match -ret {
             0 => Ok(()),
             libc::EINVAL => Err(Error::InvalidParameters),

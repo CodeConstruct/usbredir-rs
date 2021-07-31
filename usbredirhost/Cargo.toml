@@ -1,0 +1,12 @@
+[package]
+name = "usbredirhost"
+version = "0.0.1"
+authors = [ "Marc-André Lureau <marcandre.lureau@redhat.com>" ]
+edition = "2018"
+
+[dependencies]
+ffi = {package = "usbredirhost-sys", path = "../usbredirhost-sys"}
+parser = {package = "usbredirparser", path = "../usbredirparser"}
+libc = "0.2.92"
+rusb = "0.8.0"
+libusb1-sys = "0.5.0"

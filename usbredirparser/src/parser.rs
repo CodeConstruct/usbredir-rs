@@ -6,6 +6,31 @@ use std::{
 
 use crate::{Error, FilterRules, Result};
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum LogLevel {
+    None,
+    Error,
+    Warning,
+    Info,
+    Debug,
+    DebugData,
+    Other,
+}
+
+impl From<i32> for LogLevel {
+    fn from(level: i32) -> Self {
+        match level as _ {
+            ffi::usbredirparser_none => Self::None,
+            ffi::usbredirparser_error => Self::Error,
+            ffi::usbredirparser_warning => Self::Warning,
+            ffi::usbredirparser_info => Self::Info,
+            ffi::usbredirparser_debug => Self::Debug,
+            ffi::usbredirparser_debug_data => Self::DebugData,
+            _ => Self::Other,
+        }
+    }
+}
+
 pub trait ParserHandler {
     fn log(&mut self);
 }

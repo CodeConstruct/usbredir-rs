@@ -1,5 +1,9 @@
 use core::slice;
-use std::{convert::TryInto, ffi::{CStr, CString}, ptr::NonNull};
+use std::{
+    convert::TryInto,
+    ffi::{CStr, CString},
+    ptr::NonNull,
+};
 
 pub use ffi;
 pub use libusb1_sys;
@@ -11,17 +15,33 @@ pub use error::*;
 
 use rusb::{Context, DeviceHandle, UsbContext};
 
+pub type LogLevel = parser::LogLevel;
+
 pub trait DeviceHandler {
-    fn log(&mut self, level: i32, msg: &str);
+    fn log(&mut self, level: LogLevel, msg: &str);
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize>;
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize>;
     fn flush_writes(&mut self);
 }
 
 #[derive(Debug)]
+struct Inner<H> {
+    host: Option<NonNull<ffi::usbredirhost>>,
+    handler: H,
+}
+
+unsafe impl<H> Sync for Inner<H> {}
+unsafe impl<H> Send for Inner<H> {}
+
+#[derive(Debug)]
 pub struct Device<H> {
-    host: NonNull<ffi::usbredirhost>,
-    handler: Box<H>,
+    inner: Box<Inner<H>>,
+}
+
+impl<H> Device<H> {
+    fn as_raw(&self) -> *mut ffi::usbredirhost {
+        self.inner.host.unwrap().as_ptr()
+    }
 }
 
 impl<H: DeviceHandler> Device<H> {
@@ -31,10 +51,12 @@ impl<H: DeviceHandler> Device<H> {
         handler: H,
         verbose: i32,
     ) -> Self {
-        let handler = Box::new(handler);
         let flags = 0;
         let version = CString::new("usbredir-rs").unwrap();
-        let ptr = &*handler as *const _ as *mut _;
+        let mut inner = Box::new(Inner {
+            host: None,
+            handler,
+        });
         let host = unsafe {
             ffi::usbredirhost_open_full(
                 context.as_raw(),
@@ -47,19 +69,23 @@ impl<H: DeviceHandler> Device<H> {
                 Some(parser::lock),
                 Some(parser::unlock),
                 Some(parser::free_lock),
-                ptr,
+                &*inner as *const _ as *mut _,
                 version.as_ptr(),
                 verbose,
                 flags,
             )
         };
         let host = NonNull::new(host).unwrap();
-        Self { host, handler }
+        inner.host = Some(host);
+        Self { inner }
+    }
+
+    pub fn handler(&self) -> &H {
+        &self.inner.handler
     }
 
     pub fn set_device<U: UsbContext>(&self, device: Option<DeviceHandle<U>>) -> Result<()> {
-        let ret =
-            unsafe { ffi::usbredirhost_set_device(self.host.as_ptr(), device_handle(device)) };
+        let ret = unsafe { ffi::usbredirhost_set_device(self.as_raw(), device_handle(device)) };
         match ret as _ {
             parser::ffi::usb_redir_success => Ok(()),
             parser::ffi::usb_redir_cancelled => Err(Error::Cancelled),
@@ -73,7 +99,7 @@ impl<H: DeviceHandler> Device<H> {
     }
 
     pub fn read_peer(&self) -> Result<()> {
-        let ret = unsafe { ffi::usbredirhost_read_guest_data(self.host.as_ptr()) };
+        let ret = unsafe { ffi::usbredirhost_read_guest_data(self.as_raw()) };
         match ret {
             0 => Ok(()),
             ffi::usbredirhost_read_io_error => Err(Error::IO),
@@ -85,12 +111,12 @@ impl<H: DeviceHandler> Device<H> {
     }
 
     pub fn has_data_to_write(&self) -> usize {
-        let ret = unsafe { ffi::usbredirhost_has_data_to_write(self.host.as_ptr()) };
+        let ret = unsafe { ffi::usbredirhost_has_data_to_write(self.as_raw()) };
         ret as _
     }
 
     pub fn write_peer(&self) -> Result<()> {
-        let ret = unsafe { ffi::usbredirhost_write_guest_data(self.host.as_ptr()) };
+        let ret = unsafe { ffi::usbredirhost_write_guest_data(self.as_raw()) };
         match ret {
             0 => Ok(()),
             ffi::usbredirhost_write_io_error => Err(Error::IO),
@@ -103,7 +129,7 @@ impl<H: DeviceHandler> Device<H> {
         let ptr: *mut parser::ffi::usbredirfilter_rule = std::ptr::null_mut();
         unsafe {
             ffi::usbredirhost_get_guest_filter(
-                self.host.as_ptr(),
+                self.as_raw(),
                 &ptr as *const _ as *mut _,
                 &len as *const _ as *mut _,
             )
@@ -145,7 +171,8 @@ extern "C" fn log<H: DeviceHandler>(
 ) {
     unsafe {
         let msg = CStr::from_ptr(msg);
-        (*(priv_ as *mut H)).log(level, msg.to_str().unwrap());
+        let inner = &mut *(priv_ as *mut Inner<H>);
+        inner.handler.log(level.into(), msg.to_str().unwrap());
     }
 }
 
@@ -156,11 +183,12 @@ extern "C" fn read<H: DeviceHandler>(
 ) -> ::std::os::raw::c_int {
     let ret = unsafe {
         let buf = slice::from_raw_parts_mut(data, count as _);
-        (*(priv_ as *mut H)).read(buf)
+        let inner = &mut *(priv_ as *mut Inner<H>);
+        inner.handler.read(buf)
     };
     match ret {
         Ok(count) => count.try_into().unwrap(),
-        Err(err) => err.raw_os_error().unwrap_or(-1),
+        Err(err) => -err.raw_os_error().unwrap_or(1),
     }
 }
 
@@ -171,34 +199,37 @@ extern "C" fn write<H: DeviceHandler>(
 ) -> ::std::os::raw::c_int {
     let ret = unsafe {
         let buf = slice::from_raw_parts(data, count as _);
-        (*(priv_ as *mut H)).write(buf)
+        let inner = &mut *(priv_ as *mut Inner<H>);
+        inner.handler.write(buf)
     };
     match ret {
         Ok(count) => count.try_into().unwrap(),
-        Err(err) => err.raw_os_error().unwrap_or(-1),
+        Err(err) => -err.raw_os_error().unwrap_or(1),
     }
 }
 
 extern "C" fn flush_writes<H: DeviceHandler>(priv_: *mut ::std::os::raw::c_void) {
-    unsafe { (*(priv_ as *mut H)).flush_writes() }
+    unsafe {
+        let inner = &mut *(priv_ as *mut Inner<H>);
+        inner.handler.flush_writes();
+    }
 }
 
 fn device_handle<U: UsbContext>(
     device: Option<DeviceHandle<U>>,
 ) -> *mut libusb1_sys::libusb_device_handle {
-    let device_handle = if let Some(device) = &device {
-        device.as_raw()
+    let device_handle = if let Some(device) = device {
+        device.into_raw()
     } else {
         std::ptr::null_mut()
     };
-    std::mem::forget(device); // FIXME: into_raw in rusb
     device_handle
 }
 
 impl<H> Drop for Device<H> {
     fn drop(&mut self) {
         unsafe {
-            ffi::usbredirhost_close(self.host.as_ptr());
+            ffi::usbredirhost_close(self.as_raw());
         }
     }
 }

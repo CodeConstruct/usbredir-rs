@@ -5,3 +5,7 @@ members = [
         "usbredirhost-sys",
         "usbredirhost",
 ]
+
+[patch.crates-io]
+libusb1-sys = { path = "/home/elmarco/src/rusb/libusb1-sys" }
+rusb = { path = "/home/elmarco/src/rusb" }

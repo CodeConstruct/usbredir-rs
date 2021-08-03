@@ -218,12 +218,11 @@ extern "C" fn flush_writes<H: DeviceHandler>(priv_: *mut ::std::os::raw::c_void)
 fn device_handle<U: UsbContext>(
     device: Option<DeviceHandle<U>>,
 ) -> *mut libusb1_sys::libusb_device_handle {
-    let device_handle = if let Some(device) = device {
+    if let Some(device) = device {
         device.into_raw()
     } else {
         std::ptr::null_mut()
-    };
-    device_handle
+    }
 }
 
 impl<H> Drop for Device<H> {

@@ -19,6 +19,7 @@ impl FilterRules {
     pub const DEFAULT_ALLOW: u32 = ffi::usbredirfilter_fl_default_allow;
     pub const DONT_SKIP_NONBOOT_HID: u32 = ffi::usbredirfilter_fl_dont_skip_non_boot_hid;
 
+    #[allow(clippy::too_many_arguments)]
     pub fn check(
         &self,
         device_class: u8,

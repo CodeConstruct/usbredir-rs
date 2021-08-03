@@ -1,6 +1,7 @@
+#![allow(unused_variables)]
+
 use std::{
     ffi::CString,
-    os::unix::net::UnixDatagram,
     sync::{Mutex, MutexGuard},
 };
 

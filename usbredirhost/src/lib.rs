@@ -13,7 +13,7 @@ pub use rusb;
 mod error;
 pub use error::*;
 
-use rusb::{Context, DeviceHandle, UsbContext};
+use rusb::{DeviceHandle, UsbContext};
 
 pub type LogLevel = parser::LogLevel;
 
@@ -46,7 +46,7 @@ impl<H> Device<H> {
 
 impl<H: DeviceHandler> Device<H> {
     pub fn new<U: UsbContext>(
-        context: &Context,
+        context: &U,
         device: Option<DeviceHandle<U>>,
         handler: H,
         verbose: i32,

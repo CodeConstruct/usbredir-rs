@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+          "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+          "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<policyconfig>
+
+  <vendor>freedesktop usbredir project</vendor>
+  <vendor_url>https://gitlab.freedesktop.org/spice/usbredir</vendor_url>
+  <icon_name>drive-harddisk-usb-symbolic</icon_name>
+
+  <action id="org.freedesktop.usbredir.open">
+    <description>Open a USB device</description>
+    <message>Privileges are required to connect a private network namespace</message>
+    <defaults>
+      <allow_any>yes</allow_any>
+    </defaults>
+  </action>
+
+</policyconfig>

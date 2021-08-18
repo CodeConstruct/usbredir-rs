@@ -1,0 +1,7 @@
+[Unit]
+Description=USBRedir system helper
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.usbredir1
+ExecStart=@ExecStart@

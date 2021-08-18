@@ -4,6 +4,7 @@ members = [
         "usbredirparser",
         "usbredirhost-sys",
         "usbredirhost",
+        "usbredir-helper",
 ]
 
 [patch.crates-io]

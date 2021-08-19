@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    fs::{metadata, File},
+    fs::{metadata, OpenOptions},
     os::unix::fs::MetadataExt,
     os::unix::io::{FromRawFd, IntoRawFd},
 };
@@ -26,7 +26,7 @@ impl Interface {
 
         // TODO: polkit, would need async Interface
 
-        let fd = File::open(path)
+        let fd = OpenOptions::new().read(true).write(true).open(path)
             .map_err(|e| fdo::Error::Failed(format!("Failed to open: {}", e)))?
             .into_raw_fd();
         Ok(unsafe { OwnedFd::from_raw_fd(fd) })

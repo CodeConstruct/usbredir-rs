@@ -1,10 +1,11 @@
 use std::{
     error::Error,
     fs::{metadata, File},
-    os::unix::{fs::MetadataExt, prelude::IntoRawFd},
+    os::unix::fs::MetadataExt,
+    os::unix::io::{FromRawFd, IntoRawFd},
 };
 
-use zbus::{dbus_interface, fdo, zvariant::Fd, Connection, ObjectServer};
+use zbus::{dbus_interface, fdo, zvariant::OwnedFd, Connection, ObjectServer};
 
 const S_IFMT: u32 = 61440;
 const S_IFCHR: u32 = 8192;
@@ -14,7 +15,7 @@ struct Interface;
 #[dbus_interface(name = "org.freedesktop.usbredir1")]
 impl Interface {
     /// Open the USB device at the given USB address.
-    fn open_bus_dev(&self, bus: u8, dev: u8) -> fdo::Result<Fd> {
+    fn open_bus_dev(&self, bus: u8, dev: u8) -> fdo::Result<OwnedFd> {
         let path = format!("/dev/bus/usb/{:03}/{:03}", bus, dev);
 
         let metadata =
@@ -25,10 +26,10 @@ impl Interface {
 
         // TODO: polkit, would need async Interface
 
-        Ok(File::open(path)
+        let fd = File::open(path)
             .map_err(|e| fdo::Error::Failed(format!("Failed to open: {}", e)))?
-            .into_raw_fd()
-            .into())
+            .into_raw_fd();
+        Ok(unsafe { OwnedFd::from_raw_fd(fd) })
     }
 }
 

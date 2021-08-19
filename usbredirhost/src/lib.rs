@@ -50,7 +50,7 @@ impl<H: DeviceHandler> Device<H> {
         device: Option<DeviceHandle<U>>,
         handler: H,
         verbose: i32,
-    ) -> Self {
+    ) -> Result<Self> {
         let flags = 0;
         let version = CString::new("usbredir-rs").unwrap();
         let mut inner = Box::new(Inner {
@@ -75,9 +75,9 @@ impl<H: DeviceHandler> Device<H> {
                 flags,
             )
         };
-        let host = NonNull::new(host).unwrap();
+        let host = NonNull::new(host).ok_or(Error::Failed)?;
         inner.host = Some(host);
-        Self { inner }
+        Ok(Self { inner })
     }
 
     pub fn handler(&self) -> &H {

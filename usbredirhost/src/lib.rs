@@ -25,35 +25,37 @@ pub trait DeviceHandler {
 }
 
 #[derive(Debug)]
-struct Inner<H> {
+struct Inner<C, H> {
     host: Option<NonNull<ffi::usbredirhost>>,
     handler: H,
+    context: C,
 }
 
-unsafe impl<H> Sync for Inner<H> {}
-unsafe impl<H> Send for Inner<H> {}
+unsafe impl<C, H> Sync for Inner<C, H> {}
+unsafe impl<C, H> Send for Inner<C, H> {}
 
 #[derive(Debug)]
-pub struct Device<H> {
-    inner: Box<Inner<H>>,
+pub struct Device<C, H> {
+    inner: Box<Inner<C, H>>,
 }
 
-impl<H> Device<H> {
+impl<C, H> Device<C, H> {
     fn as_raw(&self) -> *mut ffi::usbredirhost {
         self.inner.host.unwrap().as_ptr()
     }
 }
 
-impl<H: DeviceHandler> Device<H> {
-    pub fn new<U: UsbContext>(
-        context: &U,
-        device: Option<DeviceHandle<U>>,
+impl<C: UsbContext, H: DeviceHandler> Device<C, H> {
+    pub fn new(
+        context: &C,
+        device: Option<DeviceHandle<C>>,
         handler: H,
         verbose: i32,
     ) -> Result<Self> {
         let flags = 0;
         let version = CString::new("usbredir-rs").unwrap();
         let mut inner = Box::new(Inner {
+            context: context.clone(),
             host: None,
             handler,
         });
@@ -61,10 +63,10 @@ impl<H: DeviceHandler> Device<H> {
             ffi::usbredirhost_open_full(
                 context.as_raw(),
                 device_handle(device),
-                Some(log::<H>),
-                Some(read::<H>),
-                Some(write::<H>),
-                Some(flush_writes::<H>),
+                Some(log::<C, H>),
+                Some(read::<C, H>),
+                Some(write::<C, H>),
+                Some(flush_writes::<C, H>),
                 Some(parser::alloc_lock),
                 Some(parser::lock),
                 Some(parser::unlock),
@@ -84,7 +86,7 @@ impl<H: DeviceHandler> Device<H> {
         &self.inner.handler
     }
 
-    pub fn set_device<U: UsbContext>(&self, device: Option<DeviceHandle<U>>) -> Result<()> {
+    pub fn set_device(&self, device: Option<DeviceHandle<C>>) -> Result<()> {
         let ret = unsafe { ffi::usbredirhost_set_device(self.as_raw(), device_handle(device)) };
         match ret as _ {
             parser::ffi::usb_redir_success => Ok(()),
@@ -146,9 +148,9 @@ impl<H: DeviceHandler> Device<H> {
         Some(parser::FilterRules { rules })
     }
 
-    pub fn check_device_filter<U: UsbContext>(
+    pub fn check_device_filter(
         filter: &parser::FilterRules,
-        device: &rusb::Device<U>,
+        device: &rusb::Device<C>,
         flags: i32,
     ) -> parser::Result<()> {
         let dev = device.as_raw();
@@ -164,26 +166,26 @@ impl<H: DeviceHandler> Device<H> {
     }
 }
 
-extern "C" fn log<H: DeviceHandler>(
+extern "C" fn log<C, H: DeviceHandler>(
     priv_: *mut ::std::os::raw::c_void,
     level: ::std::os::raw::c_int,
     msg: *const ::std::os::raw::c_char,
 ) {
     unsafe {
         let msg = CStr::from_ptr(msg);
-        let inner = &mut *(priv_ as *mut Inner<H>);
+        let inner = &mut *(priv_ as *mut Inner<C, H>);
         inner.handler.log(level.into(), msg.to_str().unwrap());
     }
 }
 
-extern "C" fn read<H: DeviceHandler>(
+extern "C" fn read<C, H: DeviceHandler>(
     priv_: *mut ::std::os::raw::c_void,
     data: *mut u8,
     count: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
     let ret = unsafe {
         let buf = slice::from_raw_parts_mut(data, count as _);
-        let inner = &mut *(priv_ as *mut Inner<H>);
+        let inner = &mut *(priv_ as *mut Inner<C, H>);
         inner.handler.read(buf)
     };
     match ret {
@@ -192,14 +194,14 @@ extern "C" fn read<H: DeviceHandler>(
     }
 }
 
-extern "C" fn write<H: DeviceHandler>(
+extern "C" fn write<C, H: DeviceHandler>(
     priv_: *mut ::std::os::raw::c_void,
     data: *mut u8,
     count: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
     let ret = unsafe {
         let buf = slice::from_raw_parts(data, count as _);
-        let inner = &mut *(priv_ as *mut Inner<H>);
+        let inner = &mut *(priv_ as *mut Inner<C, H>);
         inner.handler.write(buf)
     };
     match ret {
@@ -208,15 +210,15 @@ extern "C" fn write<H: DeviceHandler>(
     }
 }
 
-extern "C" fn flush_writes<H: DeviceHandler>(priv_: *mut ::std::os::raw::c_void) {
+extern "C" fn flush_writes<C, H: DeviceHandler>(priv_: *mut ::std::os::raw::c_void) {
     unsafe {
-        let inner = &mut *(priv_ as *mut Inner<H>);
+        let inner = &mut *(priv_ as *mut Inner<C, H>);
         inner.handler.flush_writes();
     }
 }
 
-fn device_handle<U: UsbContext>(
-    device: Option<DeviceHandle<U>>,
+fn device_handle<C: UsbContext>(
+    device: Option<DeviceHandle<C>>,
 ) -> *mut libusb1_sys::libusb_device_handle {
     if let Some(device) = device {
         device.into_raw()
@@ -225,7 +227,7 @@ fn device_handle<U: UsbContext>(
     }
 }
 
-impl<H> Drop for Device<H> {
+impl<C, H> Drop for Device<C, H> {
     fn drop(&mut self) {
         unsafe {
             ffi::usbredirhost_close(self.as_raw());

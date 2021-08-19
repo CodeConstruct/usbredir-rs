@@ -170,7 +170,7 @@ fn main() -> Result<(), Report> {
         DeviceArg::VidPid(vid, pid) => ctxt.open_device_with_vid_pid(vid, pid),
     };
     let device = device.ok_or(eyre::eyre!("Failed to open device {:?}", args.device))?;
-    let device = Device::new(&ctxt, Some(device), handler, LogLevel::None as _);
+    let device = Device::new(&ctxt, Some(device), handler, LogLevel::None as _)?;
 
     let c = ctxt.clone();
     std::thread::spawn(move || loop {

@@ -3,9 +3,10 @@ use std::{
     fs::{metadata, OpenOptions},
     os::unix::fs::MetadataExt,
     os::unix::io::{FromRawFd, IntoRawFd},
+    time::Duration,
 };
 
-use zbus::{dbus_interface, fdo, zvariant::OwnedFd, Connection, ObjectServer};
+use zbus::{dbus_interface, fdo, zvariant::OwnedFd, Connection};
 
 const S_IFMT: u32 = 61440;
 const S_IFCHR: u32 = 8192;
@@ -26,7 +27,10 @@ impl Interface {
 
         // TODO: polkit, would need async Interface
 
-        let fd = OpenOptions::new().read(true).write(true).open(path)
+        let fd = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
             .map_err(|e| fdo::Error::Failed(format!("Failed to open: {}", e)))?
             .into_raw_fd();
         Ok(unsafe { OwnedFd::from_raw_fd(fd) })
@@ -34,15 +38,18 @@ impl Interface {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let connection = Connection::system()?;
+    let connection = Connection::system()?.request_name("org.freedesktop.usbredir1")?;
 
-    let mut object_server =
-        ObjectServer::new(&connection).request_name("org.freedesktop.usbredir1")?;
-
-    object_server.at("/org/freedesktop/usbredir1", Interface)?;
+    connection
+        .object_server_mut()
+        .at("/org/freedesktop/usbredir1", Interface)?;
 
     loop {
-        // TODO: quit on timeout
-        object_server.try_handle_next()?;
+        let listener = connection.event_listen();
+        if !listener.wait_timeout(Duration::from_secs(10)) {
+            break;
+        }
     }
+
+    Ok(())
 }

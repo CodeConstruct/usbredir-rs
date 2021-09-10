@@ -8,11 +8,12 @@
   <vendor_url>https://gitlab.freedesktop.org/spice/usbredir</vendor_url>
   <icon_name>drive-harddisk-usb-symbolic</icon_name>
 
-  <action id="org.freedesktop.usbredir.open">
+  <action id="org.freedesktop.usbredir1.open">
     <description>Open a USB device</description>
-    <message>Privileges are required to connect a private network namespace</message>
+    <message>Privileges are required to open a USB device</message>
     <defaults>
-      <allow_any>yes</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
     </defaults>
   </action>
 

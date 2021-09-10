@@ -34,7 +34,7 @@ custom_target(
   ]
 )
 
-install_data('data/org.freedesktop.usbredir.policy',
+install_data('data/org.freedesktop.usbredir1.policy',
   install_dir: polkitdir)
 
 configure_file(

@@ -7,3 +7,4 @@ edition = "2018"
 #zbus = { git = "https://gitlab.freedesktop.org/dbus/zbus" }
 zbus = { path = "../../zbus/zbus" }
 zbus_polkit = { path = "../../zbus/zbus_polkit" }
+async-std = { version = "1.9.0", features = [ "attributes" ] }

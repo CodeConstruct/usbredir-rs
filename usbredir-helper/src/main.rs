@@ -6,20 +6,20 @@ use std::{
     time::Duration,
 };
 
-use zbus::{dbus_interface, fdo, zvariant::OwnedFd, Connection, MessageHeader};
-use zbus_polkit::policykit1::{AuthorityProxy, CheckAuthorizationFlags, Subject};
+use zbus::{dbus_interface, fdo, zvariant::OwnedFd, Connection, MessageHeader, ObjectServer};
+use zbus_polkit::policykit1::{AsyncAuthorityProxy, CheckAuthorizationFlags, Subject};
 
 const S_IFMT: u32 = 61440;
 const S_IFCHR: u32 = 8192;
 
 struct Interface {
-    polkit: AuthorityProxy<'static>,
+    polkit: AsyncAuthorityProxy<'static>,
 }
 
 impl Interface {
-    fn new(connection: &Connection) -> Result<Self, zbus::Error> {
+    async fn new(connection: &Connection) -> Result<Self, zbus::Error> {
         Ok(Self {
-            polkit: AuthorityProxy::new(&connection)?,
+            polkit: AsyncAuthorityProxy::new(&connection).await?,
         })
     }
 }
@@ -27,7 +27,7 @@ impl Interface {
 #[dbus_interface(name = "org.freedesktop.usbredir1")]
 impl Interface {
     /// Open the USB device at the given USB address.
-    fn open_bus_dev(
+    async fn open_bus_dev(
         &self,
         bus: u8,
         dev: u8,
@@ -54,6 +54,7 @@ impl Interface {
                 CheckAuthorizationFlags::AllowUserInteraction.into(),
                 "",
             )
+            .await
             .map_err(|e| fdo::Error::Failed(format!("Failed to check authorization: {}", e)))?;
 
         if !result.is_authorized {
@@ -70,12 +71,14 @@ impl Interface {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let connection = Connection::system()?.request_name("org.freedesktop.usbredir1")?;
-
-    connection
-        .object_server_mut()
-        .at("/org/freedesktop/usbredir1", Interface::new(&connection)?)?;
+#[async_std::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let connection = Connection::system().await?;
+    connection.object_server_mut().await.at(
+        "/org/freedesktop/usbredir1",
+        Interface::new(&connection).await?,
+    )?;
+    connection.request_name("org.freedesktop.usbredir1").await?;
 
     loop {
         let listener = connection.monitor_activity();

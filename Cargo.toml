@@ -6,7 +6,3 @@ members = [
         "usbredirhost",
         "usbredir-helper",
 ]
-
-[patch.crates-io]
-libusb1-sys = { git = "https://github.com/a1ien/rusb.git" }
-rusb = { git = "https://github.com/a1ien/rusb.git" }

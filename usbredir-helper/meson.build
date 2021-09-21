@@ -23,7 +23,7 @@ custom_target(
   console: true,
   install: true,
   install_dir: prefix / libexecdir,
-  sources: files('src/main.rs'),
+  depend_files: files('src/main.rs'),
   command: [
     cargo_sh,
     meson.build_root(),

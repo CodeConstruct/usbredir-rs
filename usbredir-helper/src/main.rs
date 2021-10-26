@@ -7,19 +7,19 @@ use std::{
 };
 
 use zbus::{dbus_interface, fdo, zvariant::OwnedFd, Connection, MessageHeader, ObjectServer};
-use zbus_polkit::policykit1::{AsyncAuthorityProxy, CheckAuthorizationFlags, Subject};
+use zbus_polkit::policykit1::{AuthorityProxy, CheckAuthorizationFlags, Subject};
 
 const S_IFMT: u32 = 61440;
 const S_IFCHR: u32 = 8192;
 
 struct Interface {
-    polkit: AsyncAuthorityProxy<'static>,
+    polkit: AuthorityProxy<'static>,
 }
 
 impl Interface {
     async fn new(connection: &Connection) -> Result<Self, zbus::Error> {
         Ok(Self {
-            polkit: AsyncAuthorityProxy::new(&connection).await?,
+            polkit: AuthorityProxy::new(&connection).await?,
         })
     }
 }

@@ -6,9 +6,9 @@ use std::{
 };
 
 pub use ffi;
-pub use rusb::ffi as libusb1_sys;
 pub use parser;
 pub use rusb;
+pub use rusb::ffi as libusb1_sys;
 
 mod error;
 pub use error::*;

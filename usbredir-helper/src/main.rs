@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use zbus::{dbus_interface, fdo, zvariant::OwnedFd, Connection, MessageHeader, ObjectServer};
+use zbus::{dbus_interface, fdo, zvariant::OwnedFd, Connection, MessageHeader};
 use zbus_polkit::policykit1::{AuthorityProxy, CheckAuthorizationFlags, Subject};
 
 const S_IFMT: u32 = 61440;
@@ -74,10 +74,13 @@ impl Interface {
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let connection = Connection::system().await?;
-    connection.object_server_mut().await.at(
-        "/org/freedesktop/usbredir1",
-        Interface::new(&connection).await?,
-    )?;
+    connection
+        .object_server()
+        .at(
+            "/org/freedesktop/usbredir1",
+            Interface::new(&connection).await?,
+        )
+        .await?;
     connection.request_name("org.freedesktop.usbredir1").await?;
 
     loop {

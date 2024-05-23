@@ -1,12 +1,12 @@
+use event_listener::Listener;
 use std::{
     error::Error,
     fs::{metadata, OpenOptions},
-    os::unix::fs::MetadataExt,
-    os::unix::io::{FromRawFd, IntoRawFd},
+    os::{fd::OwnedFd, unix::fs::MetadataExt},
     time::Duration,
 };
 
-use zbus::{dbus_interface, fdo, zvariant::OwnedFd, Connection, MessageHeader};
+use zbus::{fdo, zvariant::Fd, Connection, MessageHeader};
 use zbus_polkit::policykit1::{AuthorityProxy, CheckAuthorizationFlags, Subject};
 
 const S_IFMT: u32 = 61440;
@@ -24,7 +24,7 @@ impl Interface {
     }
 }
 
-#[dbus_interface(name = "org.freedesktop.usbredir1")]
+#[zbus::interface(name = "org.freedesktop.usbredir1")]
 impl Interface {
     /// Open the USB device at the given USB address.
     async fn open_bus_dev(
@@ -32,7 +32,7 @@ impl Interface {
         bus: u8,
         dev: u8,
         #[zbus(header)] header: MessageHeader<'_>,
-    ) -> fdo::Result<OwnedFd> {
+    ) -> fdo::Result<Fd> {
         let path = format!("/dev/bus/usb/{:03}/{:03}", bus, dev);
 
         let metadata =
@@ -61,13 +61,13 @@ impl Interface {
             return Err(fdo::Error::Failed("Check authorization failed!".into()));
         }
 
-        let fd = OpenOptions::new()
+        let fd: OwnedFd = OpenOptions::new()
             .read(true)
             .write(true)
             .open(path)
             .map_err(|e| fdo::Error::Failed(format!("Failed to open: {}", e)))?
-            .into_raw_fd();
-        Ok(unsafe { OwnedFd::from_raw_fd(fd) })
+            .into();
+        Ok(Fd::from(fd))
     }
 }
 
@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     loop {
         let listener = connection.monitor_activity();
-        if !listener.wait_timeout(Duration::from_secs(10)) {
+        if listener.wait_timeout(Duration::from_secs(10)).is_none() {
             break;
         }
     }

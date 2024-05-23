@@ -7,6 +7,6 @@ fn main() {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        pkg_config::find_library("libusbredirhost >= 0.10").unwrap();
+        pkg_config::find_library("libusbredirhost").unwrap();
     }
 }

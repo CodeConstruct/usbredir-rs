@@ -63,10 +63,10 @@ pub type IsoPacket = ffi::usb_redir_iso_packet_header;
 pub type InterruptPacket = ffi::usb_redir_interrupt_packet_header;
 pub type BufferedBulkPacket = ffi::usb_redir_buffered_bulk_packet_header;
 
-#[derive(Debug)]
-pub struct Parser<H> {
+pub struct Parser {
     parser: *mut ffi::usbredirparser,
-    handler: Box<H>,
+    #[allow(unused)]
+    handler: Box<dyn ParserHandler>,
 }
 
 pub struct ParserState {
@@ -88,8 +88,10 @@ pub enum DeviceType {
     Host,
 }
 
-impl<H: ParserHandler> Parser<H> {
-    pub fn new(handler: H, devtype: DeviceType) -> Self {
+impl Parser {
+    pub fn new<H>(handler: H, devtype: DeviceType) -> Self
+        where H: ParserHandler + 'static
+    {
         let parser = unsafe { ffi::usbredirparser_create() };
         assert!(!parser.is_null());
         let handler = Box::new(handler);
@@ -535,7 +537,7 @@ impl<H: ParserHandler> Parser<H> {
     }
 }
 
-impl<H> Drop for Parser<H> {
+impl Drop for Parser {
     fn drop(&mut self) {
         unsafe {
             ffi::usbredirparser_destroy(self.parser);

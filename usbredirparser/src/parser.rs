@@ -14,8 +14,10 @@ use crate::{Error, FilterRules, Result};
 pub trait ParserHandler {
     fn read(&mut self, parser: &Parser, buf: &mut [u8]) -> std::io::Result<usize>;
     fn write(&mut self, parser: &Parser, buf: &[u8]) -> std::io::Result<usize>;
+    fn hello(&mut self, parser: &Parser, hello: &Hello);
 }
 
+pub type Hello = ffi::usb_redir_hello_header;
 pub type DeviceConnect = ffi::usb_redir_device_connect_header;
 pub type InterfaceInfo = ffi::usb_redir_interface_info_header;
 pub type EPInfo = ffi::usb_redir_ep_info_header;
@@ -769,8 +771,17 @@ extern "C" fn interrupt_packet(
     unimplemented!()
 }
 
-extern "C" fn hello(priv_: *mut ::std::os::raw::c_void, hello: *mut ffi::usb_redir_hello_header) {
-    unimplemented!()
+extern "C" fn hello(
+    priv_: *mut ::std::os::raw::c_void,
+    hello: *mut ffi::usb_redir_hello_header,
+) {
+    let (parser, hello) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let hello = &mut *(hello);
+        (parser, hello)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.hello(&parser, &hello);
 }
 
 extern "C" fn filter_reject(priv_: *mut ::std::os::raw::c_void) {

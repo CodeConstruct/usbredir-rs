@@ -439,6 +439,7 @@ name = "usbredirparser"
 version = "0.5.0"
 dependencies = [
  "libc",
+ "log",
  "usbredirparser-sys",
 ]
 

@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 
 use std::{
-    ffi::CString,
+    ffi::{CStr, CString},
     sync::{Mutex, MutexGuard},
     cell::RefCell,
     pin::Pin,
@@ -11,33 +11,7 @@ use core::slice;
 
 use crate::{Error, FilterRules, Result};
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum LogLevel {
-    None,
-    Error,
-    Warning,
-    Info,
-    Debug,
-    DebugData,
-    Other,
-}
-
-impl From<i32> for LogLevel {
-    fn from(level: i32) -> Self {
-        match level as _ {
-            ffi::usbredirparser_none => Self::None,
-            ffi::usbredirparser_error => Self::Error,
-            ffi::usbredirparser_warning => Self::Warning,
-            ffi::usbredirparser_info => Self::Info,
-            ffi::usbredirparser_debug => Self::Debug,
-            ffi::usbredirparser_debug_data => Self::DebugData,
-            _ => Self::Other,
-        }
-    }
-}
-
 pub trait ParserHandler {
-    fn log(&mut self, parser: &Parser);
     fn read(&mut self, parser: &Parser, buf: &mut [u8]) -> std::io::Result<usize>;
     fn write(&mut self, parser: &Parser, buf: &[u8]) -> std::io::Result<usize>;
 }
@@ -558,8 +532,18 @@ extern "C" fn log(
     level: ::std::os::raw::c_int,
     msg: *const ::std::os::raw::c_char,
 ) {
-    //unsafe { (*(priv_ as *mut Inner<H>)).handler.log() }
-    unimplemented!()
+    let msg = unsafe {
+        CStr::from_ptr(msg).to_str().unwrap()
+    };
+    let log_level = match level as u32 {
+        ffi::usbredirparser_error => log::Level::Error,
+        ffi::usbredirparser_warning => log::Level::Warn,
+        ffi::usbredirparser_info => log::Level::Info,
+        ffi::usbredirparser_debug => log::Level::Debug,
+        ffi::usbredirparser_debug_data => log::Level::Trace,
+        _ => log::Level::max(),
+    };
+    log::log!(log_level, "{}", msg);
 }
 
 extern "C" fn read(

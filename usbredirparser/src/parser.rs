@@ -39,6 +39,7 @@ impl From<i32> for LogLevel {
 pub trait ParserHandler {
     fn log(&mut self, parser: &Parser);
     fn read(&mut self, parser: &Parser, buf: &mut [u8]) -> std::io::Result<usize>;
+    fn write(&mut self, parser: &Parser, buf: &[u8]) -> std::io::Result<usize>;
 }
 
 pub type DeviceConnect = ffi::usb_redir_device_connect_header;
@@ -584,7 +585,17 @@ extern "C" fn write(
     data: *mut u8,
     count: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
-    unimplemented!()
+    let (parser, buf) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = slice::from_raw_parts(data, count as _);
+        (parser, buf)
+    };
+    let mut h = parser.handler.borrow_mut();
+    match h.write(parser, buf) {
+        Ok(count) => count.try_into().unwrap(),
+        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => 0,
+        Err(err) => -1,
+    }
 }
 
 extern "C" fn device_connect(

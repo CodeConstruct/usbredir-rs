@@ -3,6 +3,8 @@
 use std::{
     ffi::CString,
     sync::{Mutex, MutexGuard},
+    cell::RefCell,
+    pin::Pin,
 };
 
 use crate::{Error, FilterRules, Result};
@@ -33,7 +35,7 @@ impl From<i32> for LogLevel {
 }
 
 pub trait ParserHandler {
-    fn log(&mut self);
+    fn log(&mut self, parser: &Parser);
 }
 
 pub type DeviceConnect = ffi::usb_redir_device_connect_header;
@@ -66,7 +68,7 @@ pub type BufferedBulkPacket = ffi::usb_redir_buffered_bulk_packet_header;
 pub struct Parser {
     parser: *mut ffi::usbredirparser,
     #[allow(unused)]
-    handler: Box<dyn ParserHandler>,
+    handler: RefCell<Box<dyn ParserHandler>>,
 }
 
 pub struct ParserState {
@@ -89,15 +91,13 @@ pub enum DeviceType {
 }
 
 impl Parser {
-    pub fn new<H>(handler: H, devtype: DeviceType) -> Self
+    pub fn new<H>(handler: H, devtype: DeviceType) -> Pin<Box<Self>>
         where H: ParserHandler + 'static
     {
         let parser = unsafe { ffi::usbredirparser_create() };
         assert!(!parser.is_null());
         let handler = Box::new(handler);
-        let priv_ = &*handler as *const H as *mut _;
         unsafe {
-            (*parser).priv_ = priv_;
             (*parser).log_func = Some(log);
             (*parser).read_func = Some(read);
             (*parser).write_func = Some(write);
@@ -139,6 +139,11 @@ impl Parser {
             (*parser).bulk_receiving_status_func = Some(bulk_receiving_status);
             (*parser).buffered_bulk_packet_func = Some(buffered_bulk_packet);
         }
+        let p = Box::pin(Self { parser, handler: RefCell::new(handler) });
+        let priv_ = &*p as *const Parser as *mut _;
+        unsafe {
+            (*parser).priv_ = priv_
+        }
 
         let flags = if devtype == DeviceType::Host {
             ffi::usbredirparser_fl_usb_host as i32
@@ -149,7 +154,7 @@ impl Parser {
         let mut caps: u32 = 0;
         unsafe { ffi::usbredirparser_init(parser, version.as_ptr(), &mut caps as _, 1, flags) }
 
-        Self { parser, handler }
+        p
     }
 
     pub fn has_cap(&self, cap: u32) -> bool {

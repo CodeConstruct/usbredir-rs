@@ -10,3 +10,8 @@ pub const CAP_32BITS_BULK_LENGTH: u32 = ffi::usb_redir_cap_32bits_bulk_length;
 pub const CAP_BULK_RECEIVING: u32 = ffi::usb_redir_cap_bulk_receiving;
 
 pub const CAPS_SIZE: u32 = ffi::USB_REDIR_CAPS_SIZE;
+
+pub const SPEED_LOW : u8 = ffi::usb_redir_speed_low as u8;
+pub const SPEED_FULL : u8 = ffi::usb_redir_speed_full as u8;
+pub const SPEED_HIGH : u8 = ffi::usb_redir_speed_high as u8;
+pub const SPEED_SUPER : u8 = ffi::usb_redir_speed_super as u8;

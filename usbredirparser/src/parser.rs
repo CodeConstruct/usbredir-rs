@@ -82,8 +82,14 @@ impl Drop for ParserState {
     }
 }
 
+#[derive(PartialEq, Debug)]
+pub enum DeviceType {
+    Device,
+    Host,
+}
+
 impl<H: ParserHandler> Parser<H> {
-    pub fn new(handler: H) -> Self {
+    pub fn new(handler: H, devtype: DeviceType) -> Self {
         let parser = unsafe { ffi::usbredirparser_create() };
         assert!(!parser.is_null());
         let handler = Box::new(handler);
@@ -132,7 +138,11 @@ impl<H: ParserHandler> Parser<H> {
             (*parser).buffered_bulk_packet_func = Some(buffered_bulk_packet);
         }
 
-        let flags = 0;
+        let flags = if devtype == DeviceType::Host {
+            ffi::usbredirparser_fl_usb_host as i32
+        } else {
+            0
+        };
         let version = CString::new("usbredir-rs").unwrap();
         let mut caps: u32 = 0;
         unsafe { ffi::usbredirparser_init(parser, version.as_ptr(), &mut caps as _, 1, flags) }

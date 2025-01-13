@@ -5,7 +5,9 @@ use std::{
     sync::{Mutex, MutexGuard},
     cell::RefCell,
     pin::Pin,
+    convert::TryInto,
 };
+use core::slice;
 
 use crate::{Error, FilterRules, Result};
 
@@ -36,6 +38,7 @@ impl From<i32> for LogLevel {
 
 pub trait ParserHandler {
     fn log(&mut self, parser: &Parser);
+    fn read(&mut self, parser: &Parser, buf: &mut [u8]) -> std::io::Result<usize>;
 }
 
 pub type DeviceConnect = ffi::usb_redir_device_connect_header;
@@ -67,7 +70,6 @@ pub type BufferedBulkPacket = ffi::usb_redir_buffered_bulk_packet_header;
 
 pub struct Parser {
     parser: *mut ffi::usbredirparser,
-    #[allow(unused)]
     handler: RefCell<Box<dyn ParserHandler>>,
 }
 
@@ -564,7 +566,17 @@ extern "C" fn read(
     data: *mut u8,
     count: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
-    unimplemented!()
+    let (parser, buf) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = slice::from_raw_parts_mut(data, count as _);
+        (parser, buf)
+    };
+    // the parser expects a 0 return value on -EWOULDBLOCK
+    match parser.handler.borrow_mut().read(parser, buf) {
+        Ok(count) => count.try_into().unwrap(),
+        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => 0,
+        Err(err) => -1,
+    }
 }
 
 extern "C" fn write(

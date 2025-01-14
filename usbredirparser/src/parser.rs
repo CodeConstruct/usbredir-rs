@@ -15,6 +15,7 @@ pub trait ParserHandler {
     fn read(&mut self, parser: &Parser, buf: &mut [u8]) -> std::io::Result<usize>;
     fn write(&mut self, parser: &Parser, buf: &[u8]) -> std::io::Result<usize>;
     fn hello(&mut self, parser: &Parser, hello: &Hello);
+    fn reset(&mut self, parser: &Parser) { }
 }
 
 pub type Hello = ffi::usb_redir_hello_header;
@@ -596,7 +597,10 @@ extern "C" fn device_disconnect(priv_: *mut ::std::os::raw::c_void) {
 }
 
 extern "C" fn reset(priv_: *mut ::std::os::raw::c_void) {
-    unimplemented!()
+    let parser = unsafe {
+        &mut *(priv_ as *mut Parser)
+    };
+    parser.handler.borrow_mut().reset(parser);
 }
 
 extern "C" fn interface_info(

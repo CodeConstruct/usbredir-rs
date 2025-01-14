@@ -18,6 +18,7 @@ pub trait ParserHandler {
     fn reset(&mut self, parser: &Parser) { }
     fn control_packet(&mut self, parser: &Parser, id: u64, pkt: &ControlPacket, data: &[u8]);
     fn cancel_data_packet(&mut self, parser: &Parser, id: u64) { }
+    fn set_configuration(&mut self, parser: &Parser, id: u64, cfg: &SetConfiguration);
 }
 
 pub type Hello = ffi::usb_redir_hello_header;
@@ -622,9 +623,12 @@ extern "C" fn ep_info(
 extern "C" fn set_configuration(
     priv_: *mut ::std::os::raw::c_void,
     id: u64,
-    set_configuration: *mut ffi::usb_redir_set_configuration_header,
+    cfg: *mut ffi::usb_redir_set_configuration_header,
 ) {
-    unimplemented!()
+    let (parser, cfg) = unsafe {
+        (&mut *(priv_ as *mut Parser), &*cfg)
+    };
+    parser.handler.borrow_mut().set_configuration(parser, id, cfg);
 }
 
 extern "C" fn get_configuration(priv_: *mut ::std::os::raw::c_void, id: u64) {

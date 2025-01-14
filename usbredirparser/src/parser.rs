@@ -16,6 +16,7 @@ pub trait ParserHandler {
     fn write(&mut self, parser: &Parser, buf: &[u8]) -> std::io::Result<usize>;
     fn hello(&mut self, parser: &Parser, hello: &Hello);
     fn reset(&mut self, parser: &Parser) { }
+    fn control_packet(&mut self, parser: &Parser, id: u64, pkt: &ControlPacket, data: &[u8]);
 }
 
 pub type Hello = ffi::usb_redir_hello_header;
@@ -742,7 +743,18 @@ extern "C" fn control_packet(
     data: *mut u8,
     data_len: ::std::os::raw::c_int,
 ) {
-    unimplemented!()
+    let (parser, buf, hdr) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = if !data.is_null() && data_len != 0 {
+            slice::from_raw_parts(data, data_len as usize)
+        } else {
+            &[]
+        };
+        let hdr = &*control_header;
+        (parser, buf, hdr)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.control_packet(parser, id, hdr, buf);
 }
 
 extern "C" fn bulk_packet(

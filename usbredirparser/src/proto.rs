@@ -15,3 +15,9 @@ pub const SPEED_LOW : u8 = ffi::usb_redir_speed_low as u8;
 pub const SPEED_FULL : u8 = ffi::usb_redir_speed_full as u8;
 pub const SPEED_HIGH : u8 = ffi::usb_redir_speed_high as u8;
 pub const SPEED_SUPER : u8 = ffi::usb_redir_speed_super as u8;
+
+pub const TYPE_CONTROL: u8 = ffi::usb_redir_type_control as u8;
+pub const TYPE_ISO: u8 = ffi::usb_redir_type_iso as u8;
+pub const TYPE_BULK: u8 = ffi::usb_redir_type_bulk as u8;
+pub const TYPE_INTERRUPT: u8 = ffi::usb_redir_type_interrupt as u8;
+pub const TYPE_INVALID: u8 = ffi::usb_redir_type_invalid as u8;

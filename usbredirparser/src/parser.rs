@@ -17,6 +17,7 @@ pub trait ParserHandler {
     fn hello(&mut self, parser: &Parser, hello: &Hello);
     fn reset(&mut self, parser: &Parser) { }
     fn control_packet(&mut self, parser: &Parser, id: u64, pkt: &ControlPacket, data: &[u8]);
+    fn cancel_data_packet(&mut self, parser: &Parser, id: u64) { }
 }
 
 pub type Hello = ffi::usb_redir_hello_header;
@@ -733,7 +734,10 @@ extern "C" fn bulk_streams_status(
 }
 
 extern "C" fn cancel_data_packet(priv_: *mut ::std::os::raw::c_void, id: u64) {
-    unimplemented!()
+    let parser = unsafe {
+        &mut *(priv_ as *mut Parser)
+    };
+    parser.handler.borrow_mut().cancel_data_packet(parser, id);
 }
 
 extern "C" fn control_packet(

@@ -84,7 +84,7 @@ impl Drop for ParserState {
 
 impl<H: ParserHandler> Parser<H> {
     pub fn new(handler: H) -> Self {
-        let mut parser = unsafe { ffi::usbredirparser_create() };
+        let parser = unsafe { ffi::usbredirparser_create() };
         assert!(!parser.is_null());
         let handler = Box::new(handler);
         let priv_ = &*handler as *const H as *mut _;

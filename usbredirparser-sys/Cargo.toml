@@ -1,6 +1,6 @@
 [package]
 name = "usbredirparser-sys"
-version = "0.2.0"
+version = "0.3.0"
 authors = [ "Marc-André Lureau <marcandre.lureau@redhat.com>" ]
 description = "FFI bindings for usbredirparser"
 repository = "https://gitlab.freedesktop.org/elmarco/usbredir-rs"
@@ -8,7 +8,7 @@ homepage = "https://gitlab.freedesktop.org/spice/usbredir"
 build = "build.rs"
 license = "MIT OR Apache-2.0"
 links = "usbredirparser"
-edition = "2018"
+edition = "2021"
 
 [build-dependencies]
 pkg-config = "0.3.30"

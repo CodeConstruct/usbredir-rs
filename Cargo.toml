@@ -6,3 +6,4 @@ members = [
         "usbredirhost",
         "usbredir-helper",
 ]
+resolver = "2"

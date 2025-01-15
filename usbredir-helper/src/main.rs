@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use zbus::{fdo, zvariant::Fd, Connection, MessageHeader};
+use zbus::{fdo, zvariant::Fd, Connection, message::Header};
 use zbus_polkit::policykit1::{AuthorityProxy, CheckAuthorizationFlags, Subject};
 
 const S_IFMT: u32 = 61440;
@@ -31,7 +31,7 @@ impl Interface {
         &self,
         bus: u8,
         dev: u8,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(header)] header: Header<'_>,
     ) -> fdo::Result<Fd> {
         let path = format!("/dev/bus/usb/{:03}/{:03}", bus, dev);
 

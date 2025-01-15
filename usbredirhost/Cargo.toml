@@ -1,6 +1,6 @@
 [package]
 name = "usbredirhost"
-version = "0.2.0"
+version = "0.3.0"
 authors = [ "Marc-André Lureau <marcandre.lureau@redhat.com>" ]
 description = "Bindings for usbredirhost"
 repository = "https://gitlab.freedesktop.org/elmarco/usbredir-rs"
@@ -9,13 +9,13 @@ license = "MIT OR Apache-2.0"
 edition = "2018"
 
 [dependencies]
-ffi = { package = "usbredirhost-sys", path = "../usbredirhost-sys", version = "0.2" }
-parser = { package = "usbredirparser", path = "../usbredirparser", version = "0.2" }
+ffi = { package = "usbredirhost-sys", path = "../usbredirhost-sys", version = "0.3" }
+parser = { package = "usbredirparser", path = "../usbredirparser", version = "0.3" }
 libc = "0.2.155"
 rusb = "0.9.4"
 
 [dev-dependencies]
 color-eyre = "0.6.3"
 tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 lexopt = "0.3"

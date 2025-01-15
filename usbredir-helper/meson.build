@@ -1,6 +1,6 @@
 project('usbredir-helper',
   'rust',
-  version: '0.2.0',
+  version: '0.3.0',
   license: 'LGPLv2'
 )
 

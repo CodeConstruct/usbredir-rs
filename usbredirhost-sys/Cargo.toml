@@ -1,6 +1,6 @@
 [package]
 name = "usbredirhost-sys"
-version = "0.4.0"
+version = "0.5.0"
 authors = [ "Marc-André Lureau <marcandre.lureau@redhat.com>" ]
 description = "FFI bindings for usbredirhost"
 license = "MIT OR Apache-2.0"
@@ -12,7 +12,7 @@ system-deps = "7.0"
 
 [dependencies]
 libusb1-sys = { version = "0.7" }
-usbredirparser-sys = { path = "../usbredirparser-sys", version = "0.4" }
+usbredirparser-sys = { path = "../usbredirparser-sys", version = "0.5" }
 
 [package.metadata.system-deps]
 usbredirhost = { name = "libusbredirhost", version = "0.13" }

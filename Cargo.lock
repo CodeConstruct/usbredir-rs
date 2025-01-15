@@ -414,7 +414,7 @@ checksum = "adb9e6ca4f869e1180728b7950e35922a7fc6397f7b641499e8f3ef06e50dc83"
 
 [[package]]
 name = "usbredirhost"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "libc",
@@ -427,7 +427,7 @@ dependencies = [
 
 [[package]]
 name = "usbredirhost-sys"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "libusb1-sys",
  "system-deps",
@@ -436,7 +436,7 @@ dependencies = [
 
 [[package]]
 name = "usbredirparser"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "libc",
  "usbredirparser-sys",
@@ -444,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "usbredirparser-sys"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "system-deps",
 ]

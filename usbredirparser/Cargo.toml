@@ -6,7 +6,7 @@ description = "Bindings for usbredirparser"
 repository = "https://gitlab.freedesktop.org/elmarco/usbredir-rs"
 homepage = "https://gitlab.freedesktop.org/spice/usbredir"
 license = "MIT OR Apache-2.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 ffi = { package = "usbredirparser-sys", path = "../usbredirparser-sys", version = "0.4" }

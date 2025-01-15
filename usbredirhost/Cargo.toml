@@ -6,7 +6,7 @@ description = "Bindings for usbredirhost"
 repository = "https://gitlab.freedesktop.org/elmarco/usbredir-rs"
 homepage = "https://gitlab.freedesktop.org/spice/usbredir"
 license = "MIT OR Apache-2.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 ffi = { package = "usbredirhost-sys", path = "../usbredirhost-sys", version = "0.4" }

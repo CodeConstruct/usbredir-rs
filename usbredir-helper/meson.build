@@ -1,7 +1,7 @@
 project('usbredir-helper',
   'rust',
   version: '0.3.0',
-  license: 'LGPLv2'
+  license: 'LGPL-2.1-or-later'
 )
 
 buildtype = get_option('buildtype')

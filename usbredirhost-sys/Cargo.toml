@@ -5,7 +5,6 @@ authors = [ "Marc-André Lureau <marcandre.lureau@redhat.com>" ]
 description = "FFI bindings for usbredirhost"
 license = "MIT OR Apache-2.0"
 build = "build.rs"
-links = "usbredirhost"
 edition = "2021"
 
 [build-dependencies]

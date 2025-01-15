@@ -9,8 +9,12 @@ links = "usbredirhost"
 edition = "2021"
 
 [build-dependencies]
-pkg-config = "0.3.30"
+system-deps = "7.0"
 
 [dependencies]
 libusb1-sys = { version = "0.7" }
 usbredirparser-sys = { path = "../usbredirparser-sys", version = "0.3" }
+
+[package.metadata.system-deps]
+usbredirhost = { name = "libusbredirhost", version = "0.13" }
+

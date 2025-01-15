@@ -2,6 +2,3 @@
 
 mod bindgen;
 pub use bindgen::*;
-
-mod filter;
-pub use filter::*;

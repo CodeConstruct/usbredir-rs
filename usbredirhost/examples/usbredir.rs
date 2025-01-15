@@ -1,4 +1,5 @@
 use std::{
+    env,
     io::{Read, Write},
     os::unix::{
         net::UnixStream,
@@ -6,7 +7,7 @@ use std::{
     },
 };
 
-use color_eyre::{eyre, Report};
+use anyhow::{anyhow, Result};
 use rusb::{self, UsbContext};
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
@@ -77,53 +78,48 @@ fn usage() -> ! {
     std::process::exit(0);
 }
 
-fn parse_args() -> Result<Args, lexopt::Error> {
-    use lexopt::prelude::*;
-
+fn parse_args() -> Result<Args> {
+    let args: Vec<String> = env::args().collect();
     let mut device = None;
     let mut io = IOArg::Default;
-    let mut parser = lexopt::Parser::from_env();
-    while let Some(arg) = parser.next()? {
-        match arg {
-            Long("fd") => {
-                io = IOArg::Fd(parser.value()?.parse()?);
-            }
-            Value(val) if device.is_none() => {
-                device = Some(val.into_string()?);
-            }
-            Long("help") => {
+
+    let mut i = 1;
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--help" => {
                 usage();
             }
-            _ => return Err(arg.unexpected()),
+            "--fd" => {
+                i += 1;
+                if i >= args.len() {
+                    usage();
+                }
+                let fd = args[i].parse()?;
+                io = IOArg::Fd(fd);
+                i += 1;
+            }
+            _ => {
+                device = Some(args[i].clone());
+                i += 1;
+            }
         }
     }
 
-    let device = device.ok_or("missing device argument")?;
+    let device = device.ok_or(anyhow!("missing device argument"))?;
 
-    let device = if device.find(':').is_some() {
-        let mut iter = device.split(":");
-        let vid = iter.next().and_then(|v| u16::from_str_radix(v, 16).ok());
-        let pid = iter.next().and_then(|v| u16::from_str_radix(v, 16).ok());
-        match (vid, pid) {
-            (Some(vid), Some(pid)) => DeviceArg::VidPid(vid, pid),
-            _ => usage(),
-        }
-    } else {
-        return Err(lexopt::Error::ParsingFailed {
-            value: device,
-            error: "Failed to parse device".into(),
-        });
+    let mut iter = device.split(":");
+    let vid = iter.next().and_then(|v| u16::from_str_radix(v, 16).ok());
+    let pid = iter.next().and_then(|v| u16::from_str_radix(v, 16).ok());
+    let device = match (vid, pid) {
+        (Some(vid), Some(pid)) => DeviceArg::VidPid(vid, pid),
+        _ => usage(),
     };
 
     Ok(Args { device, io })
 }
 
-fn setup() -> Result<(), Report> {
-    if std::env::var("RUST_LIB_BACKTRACE").is_err() {
-        std::env::set_var("RUST_LIB_BACKTRACE", "1")
-    }
-    color_eyre::install()?;
-
+fn setup() -> Result<()> {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info")
     }
@@ -148,7 +144,7 @@ fn fd_poll_readable(fd: RawFd, wait: bool) -> std::io::Result<bool> {
     }
 }
 
-fn main() -> Result<(), Report> {
+fn main() -> Result<()> {
     setup()?;
 
     let args = parse_args()?;
@@ -169,7 +165,7 @@ fn main() -> Result<(), Report> {
     let device = match args.device {
         DeviceArg::VidPid(vid, pid) => ctxt.open_device_with_vid_pid(vid, pid),
     };
-    let device = device.ok_or(eyre::eyre!("Failed to open device {:?}", args.device))?;
+    let device = device.ok_or_else(|| anyhow!("Failed to open device {:?}", args.device))?;
     let device = Device::new(&ctxt, Some(device), handler, LogLevel::None as _)?;
 
     let c = ctxt.clone();

@@ -17,6 +17,7 @@ pub trait ParserHandler {
     fn hello(&mut self, parser: &Parser, hello: &Hello);
     fn reset(&mut self, parser: &Parser) { }
     fn control_packet(&mut self, parser: &Parser, id: u64, pkt: &ControlPacket, data: &[u8]);
+    fn bulk_packet(&mut self, parser: &Parser, id: u64, pkt: &BulkPacket, data: &[u8]) { }
     fn cancel_data_packet(&mut self, parser: &Parser, id: u64) { }
     fn set_configuration(&mut self, parser: &Parser, id: u64, cfg: &SetConfiguration);
 }
@@ -772,7 +773,18 @@ extern "C" fn bulk_packet(
     data: *mut u8,
     data_len: ::std::os::raw::c_int,
 ) {
-    unimplemented!()
+    let (parser, buf, hdr) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = if !data.is_null() && data_len != 0 {
+            slice::from_raw_parts(data, data_len as usize)
+        } else {
+            &[]
+        };
+        let hdr = &*bulk_header;
+        (parser, buf, hdr)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.bulk_packet(parser, id, hdr, buf);
 }
 
 extern "C" fn iso_packet(

@@ -4,6 +4,9 @@ members = [
         "usbredirparser",
         "usbredirhost-sys",
         "usbredirhost",
+]
+exclude = [
+	# it is unix-specific, and should be built/install with meson
         "usbredir-helper",
 ]
 resolver = "2"

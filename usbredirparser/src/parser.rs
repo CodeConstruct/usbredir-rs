@@ -424,48 +424,68 @@ impl<H: ParserHandler> Parser<H> {
     }
 
     pub fn send_control_packet(&self, id: u64, control_packet: &ControlPacket, data: &[u8]) {
+        let data_ptr = if data.len() > 0 {
+            data.as_ptr()
+        } else {
+            std::ptr::null()
+        };
         unsafe {
             ffi::usbredirparser_send_control_packet(
                 self.parser,
                 id,
                 control_packet as *const _ as *mut _,
-                data.as_ptr() as *const _ as *mut _,
+                data_ptr as *const _ as *mut _,
                 data.len() as _,
             )
         }
     }
 
     pub fn send_bulk_packet(&self, id: u64, bulk_packet: &BulkPacket, data: &[u8]) {
+        let data_ptr = if data.len() > 0 {
+            data.as_ptr()
+        } else {
+            std::ptr::null()
+        };
         unsafe {
             ffi::usbredirparser_send_bulk_packet(
                 self.parser,
                 id,
                 bulk_packet as *const _ as *mut _,
-                data.as_ptr() as *const _ as *mut _,
+                data_ptr as *const _ as *mut _,
                 data.len() as _,
             )
         }
     }
 
     pub fn send_iso_packet(&self, id: u64, iso_packet: &IsoPacket, data: &[u8]) {
+        let data_ptr = if data.len() > 0 {
+            data.as_ptr()
+        } else {
+            std::ptr::null()
+        };
         unsafe {
             ffi::usbredirparser_send_iso_packet(
                 self.parser,
                 id,
                 iso_packet as *const _ as *mut _,
-                data.as_ptr() as *const _ as *mut _,
+                data_ptr as *const _ as *mut _,
                 data.len() as _,
             )
         }
     }
 
     pub fn send_interrupt_packet(&self, id: u64, interrupt_packet: &InterruptPacket, data: &[u8]) {
+        let data_ptr = if data.len() > 0 {
+            data.as_ptr()
+        } else {
+            std::ptr::null()
+        };
         unsafe {
             ffi::usbredirparser_send_interrupt_packet(
                 self.parser,
                 id,
                 interrupt_packet as *const _ as *mut _,
-                data.as_ptr() as *const _ as *mut _,
+                data_ptr as *const _ as *mut _,
                 data.len() as _,
             )
         }

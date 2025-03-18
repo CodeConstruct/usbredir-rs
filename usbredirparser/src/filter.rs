@@ -100,25 +100,25 @@ impl FromStr for FilterRules {
         let cs = CString::new(s).unwrap();
         let token_sep = CString::new(",").unwrap();
         let rule_sep = CString::new("|").unwrap();
-        let len = 0;
-        let ptr: *mut ffi::usbredirfilter_rule = std::ptr::null_mut();
+        let mut len: std::os::raw::c_int = 0;
+        let mut ptr: *mut ffi::usbredirfilter_rule = std::ptr::null_mut();
         let ret = unsafe {
             ffi::usbredirfilter_string_to_rules(
                 cs.as_ptr(),
                 token_sep.as_ptr(),
                 rule_sep.as_ptr(),
-                &ptr as *const _ as *mut _,
-                &len as *const _ as *mut _,
+                &mut ptr,
+                &mut len,
             )
         };
         if ret < 0 {
             return Err(Error::Failed);
         }
         let rules = unsafe {
-            let slice = std::slice::from_raw_parts(ptr, len);
+            let slice = std::slice::from_raw_parts(ptr, len as usize);
             slice.to_vec()
         };
-        unsafe { libc::free(ptr as _) }
+        unsafe { libc::free(ptr as *mut libc::c_void) }
         Ok(FilterRules { rules })
     }
 }

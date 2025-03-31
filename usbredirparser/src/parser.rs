@@ -43,8 +43,11 @@ pub trait ParserHandler {
     fn reset(&mut self, parser: &Parser) { }
     fn control_packet(&mut self, parser: &Parser, id: u64, pkt: &ControlPacket, data: &[u8]);
     fn bulk_packet(&mut self, parser: &Parser, id: u64, pkt: &BulkPacket, data: &[u8]) { }
+    fn interrupt_packet(&mut self, parser: &Parser, id: u64, pkt: &InterruptPacket, data: &[u8]) { }
     fn cancel_data_packet(&mut self, parser: &Parser, id: u64) { }
     fn set_configuration(&mut self, parser: &Parser, id: u64, cfg: &SetConfiguration);
+    fn start_interrupt_receiving(&mut self, parser: &Parser, id: u64, hdr: &StartInterruptReceiving) { }
+    fn stop_interrupt_receiving(&mut self, parser: &Parser, id: u64, hdr: &StopInterruptReceiving) { }
 }
 
 pub type Hello = ffi::usb_redir_hello_header;
@@ -720,7 +723,11 @@ extern "C" fn start_interrupt_receiving(
     id: u64,
     start_interrupt_receiving: *mut ffi::usb_redir_start_interrupt_receiving_header,
 ) {
-    unimplemented!()
+    let (parser, hdr) = unsafe {
+        (&mut *(priv_ as *mut Parser), &*start_interrupt_receiving)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.start_interrupt_receiving(parser, id, hdr);
 }
 
 extern "C" fn stop_interrupt_receiving(
@@ -728,7 +735,11 @@ extern "C" fn stop_interrupt_receiving(
     id: u64,
     stop_interrupt_receiving: *mut ffi::usb_redir_stop_interrupt_receiving_header,
 ) {
-    unimplemented!()
+    let (parser, hdr) = unsafe {
+        (&mut *(priv_ as *mut Parser), &*stop_interrupt_receiving)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.stop_interrupt_receiving(parser, id, hdr);
 }
 
 extern "C" fn interrupt_receiving_status(
@@ -829,7 +840,18 @@ extern "C" fn interrupt_packet(
     data: *mut u8,
     data_len: ::std::os::raw::c_int,
 ) {
-    unimplemented!()
+    let (parser, buf, hdr) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = if !data.is_null() && data_len != 0 {
+            slice::from_raw_parts(data, data_len as usize)
+        } else {
+            &[]
+        };
+        let hdr = &*interrupt_header;
+        (parser, buf, hdr)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.interrupt_packet(parser, id, hdr, buf);
 }
 
 extern "C" fn hello(

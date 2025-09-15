@@ -1,9 +1,13 @@
 #![allow(unused_variables)]
 
 use std::{
-    ffi::CString,
+    ffi::{CStr, CString},
     sync::{Mutex, MutexGuard},
+    cell::RefCell,
+    pin::Pin,
+    convert::TryInto,
 };
+use core::slice;
 
 use crate::{Error, FilterRules, Result};
 
@@ -33,9 +37,20 @@ impl From<i32> for LogLevel {
 }
 
 pub trait ParserHandler {
-    fn log(&mut self);
+    fn read(&mut self, parser: &Parser, buf: &mut [u8]) -> std::io::Result<usize>;
+    fn write(&mut self, parser: &Parser, buf: &[u8]) -> std::io::Result<usize>;
+    fn hello(&mut self, parser: &Parser, hello: &Hello);
+    fn reset(&mut self, parser: &Parser) { }
+    fn control_packet(&mut self, parser: &Parser, id: u64, pkt: &ControlPacket, data: &[u8]);
+    fn bulk_packet(&mut self, parser: &Parser, id: u64, pkt: &BulkPacket, data: &[u8]) { }
+    fn interrupt_packet(&mut self, parser: &Parser, id: u64, pkt: &InterruptPacket, data: &[u8]) { }
+    fn cancel_data_packet(&mut self, parser: &Parser, id: u64) { }
+    fn set_configuration(&mut self, parser: &Parser, id: u64, cfg: &SetConfiguration);
+    fn start_interrupt_receiving(&mut self, parser: &Parser, id: u64, hdr: &StartInterruptReceiving) { }
+    fn stop_interrupt_receiving(&mut self, parser: &Parser, id: u64, hdr: &StopInterruptReceiving) { }
 }
 
+pub type Hello = ffi::usb_redir_hello_header;
 pub type DeviceConnect = ffi::usb_redir_device_connect_header;
 pub type InterfaceInfo = ffi::usb_redir_interface_info_header;
 pub type EPInfo = ffi::usb_redir_ep_info_header;
@@ -63,10 +78,9 @@ pub type IsoPacket = ffi::usb_redir_iso_packet_header;
 pub type InterruptPacket = ffi::usb_redir_interrupt_packet_header;
 pub type BufferedBulkPacket = ffi::usb_redir_buffered_bulk_packet_header;
 
-#[derive(Debug)]
-pub struct Parser<H> {
+pub struct Parser {
     parser: *mut ffi::usbredirparser,
-    handler: Box<H>,
+    handler: RefCell<Box<dyn ParserHandler>>,
 }
 
 pub struct ParserState {
@@ -82,14 +96,20 @@ impl Drop for ParserState {
     }
 }
 
-impl<H: ParserHandler> Parser<H> {
-    pub fn new(handler: H) -> Self {
+#[derive(PartialEq, Debug)]
+pub enum DeviceType {
+    Device,
+    Host,
+}
+
+impl Parser {
+    pub fn new<H>(handler: H, devtype: DeviceType) -> Pin<Box<Self>>
+        where H: ParserHandler + 'static
+    {
         let parser = unsafe { ffi::usbredirparser_create() };
         assert!(!parser.is_null());
         let handler = Box::new(handler);
-        let priv_ = &*handler as *const H as *mut _;
         unsafe {
-            (*parser).priv_ = priv_;
             (*parser).log_func = Some(log);
             (*parser).read_func = Some(read);
             (*parser).write_func = Some(write);
@@ -131,13 +151,22 @@ impl<H: ParserHandler> Parser<H> {
             (*parser).bulk_receiving_status_func = Some(bulk_receiving_status);
             (*parser).buffered_bulk_packet_func = Some(buffered_bulk_packet);
         }
+        let p = Box::pin(Self { parser, handler: RefCell::new(handler) });
+        let priv_ = &*p as *const Parser as *mut _;
+        unsafe {
+            (*parser).priv_ = priv_
+        }
 
-        let flags = 0;
+        let flags = if devtype == DeviceType::Host {
+            ffi::usbredirparser_fl_usb_host as i32
+        } else {
+            0
+        };
         let version = CString::new("usbredir-rs").unwrap();
         let mut caps: u32 = 0;
         unsafe { ffi::usbredirparser_init(parser, version.as_ptr(), &mut caps as _, 1, flags) }
 
-        Self { parser, handler }
+        p
     }
 
     pub fn has_cap(&self, cap: u32) -> bool {
@@ -414,48 +443,68 @@ impl<H: ParserHandler> Parser<H> {
     }
 
     pub fn send_control_packet(&self, id: u64, control_packet: &ControlPacket, data: &[u8]) {
+        let data_ptr = if ! data.is_empty() {
+            data.as_ptr()
+        } else {
+            std::ptr::null()
+        };
         unsafe {
             ffi::usbredirparser_send_control_packet(
                 self.parser,
                 id,
                 control_packet as *const _ as *mut _,
-                data.as_ptr() as *const _ as *mut _,
+                data_ptr as *const _ as *mut _,
                 data.len() as _,
             )
         }
     }
 
     pub fn send_bulk_packet(&self, id: u64, bulk_packet: &BulkPacket, data: &[u8]) {
+        let data_ptr = if ! data.is_empty() {
+            data.as_ptr()
+        } else {
+            std::ptr::null()
+        };
         unsafe {
             ffi::usbredirparser_send_bulk_packet(
                 self.parser,
                 id,
                 bulk_packet as *const _ as *mut _,
-                data.as_ptr() as *const _ as *mut _,
+                data_ptr as *const _ as *mut _,
                 data.len() as _,
             )
         }
     }
 
     pub fn send_iso_packet(&self, id: u64, iso_packet: &IsoPacket, data: &[u8]) {
+        let data_ptr = if ! data.is_empty() {
+            data.as_ptr()
+        } else {
+            std::ptr::null()
+        };
         unsafe {
             ffi::usbredirparser_send_iso_packet(
                 self.parser,
                 id,
                 iso_packet as *const _ as *mut _,
-                data.as_ptr() as *const _ as *mut _,
+                data_ptr as *const _ as *mut _,
                 data.len() as _,
             )
         }
     }
 
     pub fn send_interrupt_packet(&self, id: u64, interrupt_packet: &InterruptPacket, data: &[u8]) {
+        let data_ptr = if data.is_empty() {
+            data.as_ptr()
+        } else {
+            std::ptr::null()
+        };
         unsafe {
             ffi::usbredirparser_send_interrupt_packet(
                 self.parser,
                 id,
                 interrupt_packet as *const _ as *mut _,
-                data.as_ptr() as *const _ as *mut _,
+                data_ptr as *const _ as *mut _,
                 data.len() as _,
             )
         }
@@ -505,7 +554,7 @@ impl<H: ParserHandler> Parser<H> {
     }
 }
 
-impl<H> Drop for Parser<H> {
+impl Drop for Parser {
     fn drop(&mut self) {
         unsafe {
             ffi::usbredirparser_destroy(self.parser);
@@ -518,8 +567,18 @@ extern "C" fn log(
     level: ::std::os::raw::c_int,
     msg: *const ::std::os::raw::c_char,
 ) {
-    //unsafe { (*(priv_ as *mut Inner<H>)).handler.log() }
-    unimplemented!()
+    let msg = unsafe {
+        CStr::from_ptr(msg).to_str().unwrap()
+    };
+    let log_level = match level as u32 {
+        ffi::usbredirparser_error => log::Level::Error,
+        ffi::usbredirparser_warning => log::Level::Warn,
+        ffi::usbredirparser_info => log::Level::Info,
+        ffi::usbredirparser_debug => log::Level::Debug,
+        ffi::usbredirparser_debug_data => log::Level::Trace,
+        _ => log::Level::max(),
+    };
+    log::log!(log_level, "{}", msg);
 }
 
 extern "C" fn read(
@@ -527,7 +586,17 @@ extern "C" fn read(
     data: *mut u8,
     count: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
-    unimplemented!()
+    let (parser, buf) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = slice::from_raw_parts_mut(data, count as _);
+        (parser, buf)
+    };
+    // the parser expects a 0 return value on -EWOULDBLOCK
+    match parser.handler.borrow_mut().read(parser, buf) {
+        Ok(count) => count.try_into().unwrap(),
+        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => 0,
+        Err(err) => -1,
+    }
 }
 
 extern "C" fn write(
@@ -535,7 +604,17 @@ extern "C" fn write(
     data: *mut u8,
     count: ::std::os::raw::c_int,
 ) -> ::std::os::raw::c_int {
-    unimplemented!()
+    let (parser, buf) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = slice::from_raw_parts(data, count as _);
+        (parser, buf)
+    };
+    let mut h = parser.handler.borrow_mut();
+    match h.write(parser, buf) {
+        Ok(count) => count.try_into().unwrap(),
+        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => 0,
+        Err(err) => -1,
+    }
 }
 
 extern "C" fn device_connect(
@@ -550,7 +629,10 @@ extern "C" fn device_disconnect(priv_: *mut ::std::os::raw::c_void) {
 }
 
 extern "C" fn reset(priv_: *mut ::std::os::raw::c_void) {
-    unimplemented!()
+    let parser = unsafe {
+        &mut *(priv_ as *mut Parser)
+    };
+    parser.handler.borrow_mut().reset(parser);
 }
 
 extern "C" fn interface_info(
@@ -570,9 +652,12 @@ extern "C" fn ep_info(
 extern "C" fn set_configuration(
     priv_: *mut ::std::os::raw::c_void,
     id: u64,
-    set_configuration: *mut ffi::usb_redir_set_configuration_header,
+    cfg: *mut ffi::usb_redir_set_configuration_header,
 ) {
-    unimplemented!()
+    let (parser, cfg) = unsafe {
+        (&mut *(priv_ as *mut Parser), &*cfg)
+    };
+    parser.handler.borrow_mut().set_configuration(parser, id, cfg);
 }
 
 extern "C" fn get_configuration(priv_: *mut ::std::os::raw::c_void, id: u64) {
@@ -638,7 +723,11 @@ extern "C" fn start_interrupt_receiving(
     id: u64,
     start_interrupt_receiving: *mut ffi::usb_redir_start_interrupt_receiving_header,
 ) {
-    unimplemented!()
+    let (parser, hdr) = unsafe {
+        (&mut *(priv_ as *mut Parser), &*start_interrupt_receiving)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.start_interrupt_receiving(parser, id, hdr);
 }
 
 extern "C" fn stop_interrupt_receiving(
@@ -646,7 +735,11 @@ extern "C" fn stop_interrupt_receiving(
     id: u64,
     stop_interrupt_receiving: *mut ffi::usb_redir_stop_interrupt_receiving_header,
 ) {
-    unimplemented!()
+    let (parser, hdr) = unsafe {
+        (&mut *(priv_ as *mut Parser), &*stop_interrupt_receiving)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.stop_interrupt_receiving(parser, id, hdr);
 }
 
 extern "C" fn interrupt_receiving_status(
@@ -682,7 +775,10 @@ extern "C" fn bulk_streams_status(
 }
 
 extern "C" fn cancel_data_packet(priv_: *mut ::std::os::raw::c_void, id: u64) {
-    unimplemented!()
+    let parser = unsafe {
+        &mut *(priv_ as *mut Parser)
+    };
+    parser.handler.borrow_mut().cancel_data_packet(parser, id);
 }
 
 extern "C" fn control_packet(
@@ -692,7 +788,18 @@ extern "C" fn control_packet(
     data: *mut u8,
     data_len: ::std::os::raw::c_int,
 ) {
-    unimplemented!()
+    let (parser, buf, hdr) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = if !data.is_null() && data_len != 0 {
+            slice::from_raw_parts(data, data_len as usize)
+        } else {
+            &[]
+        };
+        let hdr = &*control_header;
+        (parser, buf, hdr)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.control_packet(parser, id, hdr, buf);
 }
 
 extern "C" fn bulk_packet(
@@ -702,7 +809,18 @@ extern "C" fn bulk_packet(
     data: *mut u8,
     data_len: ::std::os::raw::c_int,
 ) {
-    unimplemented!()
+    let (parser, buf, hdr) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = if !data.is_null() && data_len != 0 {
+            slice::from_raw_parts(data, data_len as usize)
+        } else {
+            &[]
+        };
+        let hdr = &*bulk_header;
+        (parser, buf, hdr)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.bulk_packet(parser, id, hdr, buf);
 }
 
 extern "C" fn iso_packet(
@@ -722,11 +840,31 @@ extern "C" fn interrupt_packet(
     data: *mut u8,
     data_len: ::std::os::raw::c_int,
 ) {
-    unimplemented!()
+    let (parser, buf, hdr) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let buf = if !data.is_null() && data_len != 0 {
+            slice::from_raw_parts(data, data_len as usize)
+        } else {
+            &[]
+        };
+        let hdr = &*interrupt_header;
+        (parser, buf, hdr)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.interrupt_packet(parser, id, hdr, buf);
 }
 
-extern "C" fn hello(priv_: *mut ::std::os::raw::c_void, hello: *mut ffi::usb_redir_hello_header) {
-    unimplemented!()
+extern "C" fn hello(
+    priv_: *mut ::std::os::raw::c_void,
+    hello: *mut ffi::usb_redir_hello_header,
+) {
+    let (parser, hello) = unsafe {
+        let parser = &mut *(priv_ as *mut Parser);
+        let hello = &mut *(hello);
+        (parser, hello)
+    };
+    let mut h = parser.handler.borrow_mut();
+    h.hello(parser, hello);
 }
 
 extern "C" fn filter_reject(priv_: *mut ::std::os::raw::c_void) {

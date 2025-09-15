@@ -11,3 +11,10 @@ edition = "2021"
 [dependencies]
 ffi = { package = "usbredirparser-sys", path = "../usbredirparser-sys", version = "0.5" }
 libc = "0.2.155"
+log = "0.4.22"
+
+[dev-dependencies]
+anyhow = "1.0.97"
+argh = "0.1.13"
+simplelog = "0.12.2"
+smol = "2.0.2"

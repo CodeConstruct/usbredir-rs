@@ -127,25 +127,20 @@ impl<C: UsbContext, H: DeviceHandler> Device<C, H> {
     }
 
     pub fn peer_filter(&self) -> Option<parser::FilterRules> {
-        let len = 0;
-        let ptr: *mut parser::ffi::usbredirfilter_rule = std::ptr::null_mut();
-        unsafe {
-            ffi::usbredirhost_get_guest_filter(
-                self.as_raw(),
-                &ptr as *const _ as *mut _,
-                &len as *const _ as *mut _,
-            )
-        };
-        if len == 0 {
+        let mut len: std::os::raw::c_int = 0;
+        let mut ptr: *const parser::ffi::usbredirfilter_rule = std::ptr::null();
+        unsafe { ffi::usbredirhost_get_guest_filter(self.as_raw(), &mut ptr, &mut len) };
+        if len == 0 || ptr.is_null() {
             assert!(ptr.is_null());
-            return None;
+            None
+        } else {
+            let rules = unsafe {
+                let slice = std::slice::from_raw_parts(ptr, len as usize);
+                slice.to_vec()
+            };
+            unsafe { libc::free(ptr as *mut std::os::raw::c_void) }
+            Some(parser::FilterRules { rules })
         }
-        let rules = unsafe {
-            let slice = std::slice::from_raw_parts(ptr, len);
-            slice.to_vec()
-        };
-        unsafe { libc::free(ptr as _) }
-        Some(parser::FilterRules { rules })
     }
 
     pub fn check_device_filter(

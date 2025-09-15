@@ -29,7 +29,7 @@
 
 use anyhow::{Context, Result};
 use argh::FromArgs;
-use log::{LevelFilter, debug, trace, warn};
+use log::{debug, trace, warn, LevelFilter};
 use std::{
     io::{Read, Write},
     pin::Pin,

@@ -11,10 +11,10 @@ pub const CAP_BULK_RECEIVING: u32 = ffi::usb_redir_cap_bulk_receiving;
 
 pub const CAPS_SIZE: u32 = ffi::USB_REDIR_CAPS_SIZE;
 
-pub const SPEED_LOW : u8 = ffi::usb_redir_speed_low as u8;
-pub const SPEED_FULL : u8 = ffi::usb_redir_speed_full as u8;
-pub const SPEED_HIGH : u8 = ffi::usb_redir_speed_high as u8;
-pub const SPEED_SUPER : u8 = ffi::usb_redir_speed_super as u8;
+pub const SPEED_LOW: u8 = ffi::usb_redir_speed_low as u8;
+pub const SPEED_FULL: u8 = ffi::usb_redir_speed_full as u8;
+pub const SPEED_HIGH: u8 = ffi::usb_redir_speed_high as u8;
+pub const SPEED_SUPER: u8 = ffi::usb_redir_speed_super as u8;
 
 pub const TYPE_CONTROL: u8 = ffi::usb_redir_type_control as u8;
 pub const TYPE_ISO: u8 = ffi::usb_redir_type_iso as u8;
@@ -22,10 +22,10 @@ pub const TYPE_BULK: u8 = ffi::usb_redir_type_bulk as u8;
 pub const TYPE_INTERRUPT: u8 = ffi::usb_redir_type_interrupt as u8;
 pub const TYPE_INVALID: u8 = ffi::usb_redir_type_invalid as u8;
 
-pub const STATUS_SUCCESS : u8 = ffi::usb_redir_success as u8;
-pub const STATUS_CANCELLED : u8 = ffi::usb_redir_cancelled as u8;
-pub const STATUS_INVAL : u8 = ffi::usb_redir_inval as u8;
-pub const STATUS_IOERROR : u8 = ffi::usb_redir_ioerror as u8;
-pub const STATUS_STALL : u8 = ffi::usb_redir_stall as u8;
-pub const STATUS_TIMEOUT : u8 = ffi::usb_redir_timeout as u8;
-pub const STATUS_BABBLE : u8 = ffi::usb_redir_babble as u8;
+pub const STATUS_SUCCESS: u8 = ffi::usb_redir_success as u8;
+pub const STATUS_CANCELLED: u8 = ffi::usb_redir_cancelled as u8;
+pub const STATUS_INVAL: u8 = ffi::usb_redir_inval as u8;
+pub const STATUS_IOERROR: u8 = ffi::usb_redir_ioerror as u8;
+pub const STATUS_STALL: u8 = ffi::usb_redir_stall as u8;
+pub const STATUS_TIMEOUT: u8 = ffi::usb_redir_timeout as u8;
+pub const STATUS_BABBLE: u8 = ffi::usb_redir_babble as u8;

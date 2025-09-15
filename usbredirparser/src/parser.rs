@@ -799,7 +799,7 @@ pub extern "C" fn free_lock(ptr: *mut ::std::os::raw::c_void) {
 
 pub extern "C" fn lock(ptr: *mut ::std::os::raw::c_void) {
     let mut lock: Box<Lock> = unsafe { Box::from_raw(ptr as _) };
-    let guard = unsafe { std::mem::transmute(lock.mutex.lock().unwrap()) };
+    let guard = unsafe { std::mem::transmute::<std::sync::MutexGuard<'_, ()>, std::sync::MutexGuard<'_, ()>>(lock.mutex.lock().unwrap()) };
     lock.guard = Some(guard);
     std::mem::forget(lock);
 }

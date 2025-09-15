@@ -17,10 +17,14 @@ impl<T> __IncompleteArrayField<T> {
         self as *mut _ as *mut T
     }
     #[inline]
+    /// # Safety
+    /// The caller must ensure that `len` is valid and the pointer is non-null.
     pub unsafe fn as_slice(&self, len: usize) -> &[T] {
         ::std::slice::from_raw_parts(self.as_ptr(), len)
     }
     #[inline]
+    /// # Safety
+    /// The caller must ensure that `len` is valid and the pointer is non-null.
     pub unsafe fn as_mut_slice(&mut self, len: usize) -> &mut [T] {
         ::std::slice::from_raw_parts_mut(self.as_mut_ptr(), len)
     }

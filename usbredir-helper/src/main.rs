@@ -32,7 +32,7 @@ impl Interface {
         bus: u8,
         dev: u8,
         #[zbus(header)] header: Header<'_>,
-    ) -> fdo::Result<Fd> {
+    ) -> fdo::Result<Fd<'_>> {
         let path = format!("/dev/bus/usb/{:03}/{:03}", bus, dev);
 
         let metadata =

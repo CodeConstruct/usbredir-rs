@@ -19,7 +19,7 @@ struct Interface {
 impl Interface {
     async fn new(connection: &Connection) -> Result<Self, zbus::Error> {
         Ok(Self {
-            polkit: AuthorityProxy::new(&connection).await?,
+            polkit: AuthorityProxy::new(connection).await?,
         })
     }
 }

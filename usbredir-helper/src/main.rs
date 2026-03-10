@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use zbus::{fdo, zvariant::Fd, Connection, message::Header};
+use zbus::{fdo, message::Header, zvariant::Fd, Connection};
 use zbus_polkit::policykit1::{AuthorityProxy, CheckAuthorizationFlags, Subject};
 
 const S_IFMT: u32 = 61440;

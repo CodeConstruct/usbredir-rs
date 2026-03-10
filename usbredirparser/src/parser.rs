@@ -198,6 +198,14 @@ impl Parser {
         unsafe { ffi::usbredirparser_peer_has_cap(self.parser, cap as _) == 1 }
     }
 
+    #[allow(unused)]
+    fn caps_set_cap(caps: &mut [u32; proto::CAPS_SIZE as usize], cap: u32) {
+        // SAFETY: the caps are all bit-numbered, so should not exceed the
+        // range of an i32. We have typed the caps array (as CAPS_SIZE) to suit
+        // the ffi call.
+        unsafe { ffi::usbredirparser_caps_set_cap(caps as *mut u32, cap as i32) }
+    }
+
     pub fn do_read(&self) -> Result<()> {
         let ret = unsafe { ffi::usbredirparser_do_read(self.parser) };
         match ret {

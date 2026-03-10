@@ -9,7 +9,7 @@ use std::{
     sync::{Mutex, MutexGuard},
 };
 
-use crate::{Error, FilterRules, Result};
+use crate::{proto, Error, FilterRules, Result};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogLevel {
@@ -173,7 +173,15 @@ impl Parser {
         };
         let version = CString::new("usbredir-rs").unwrap();
         let mut caps: u32 = 0;
-        unsafe { ffi::usbredirparser_init(parser, version.as_ptr(), &mut caps as _, 1, flags) }
+        unsafe {
+            ffi::usbredirparser_init(
+                parser,
+                version.as_ptr(),
+                &mut caps as _,
+                proto::CAPS_SIZE as i32,
+                flags,
+            )
+        }
 
         p
     }

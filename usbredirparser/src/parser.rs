@@ -9,7 +9,7 @@ use std::{
     sync::{Mutex, MutexGuard},
 };
 
-use crate::{Error, FilterRules, Result};
+use crate::{proto, Error, FilterRules, Result};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogLevel {
@@ -172,8 +172,18 @@ impl Parser {
             0
         };
         let version = CString::new("usbredir-rs").unwrap();
-        let mut caps: u32 = 0;
-        unsafe { ffi::usbredirparser_init(parser, version.as_ptr(), &mut caps as _, 1, flags) }
+        let mut caps = [0u32; proto::CAPS_SIZE as usize];
+        // We use u64 for our packet IDs
+        Self::caps_set_cap(&mut caps, proto::CAP_64BITS_IDS);
+        unsafe {
+            ffi::usbredirparser_init(
+                parser,
+                version.as_ptr(),
+                &mut caps as _,
+                proto::CAPS_SIZE as i32,
+                flags,
+            )
+        }
 
         p
     }
@@ -188,6 +198,13 @@ impl Parser {
 
     pub fn peer_has_cap(&self, cap: u32) -> bool {
         unsafe { ffi::usbredirparser_peer_has_cap(self.parser, cap as _) == 1 }
+    }
+
+    fn caps_set_cap(caps: &mut [u32; proto::CAPS_SIZE as usize], cap: u32) {
+        // SAFETY: the caps are all bit-numbered, so should not exceed the
+        // range of an i32. We have typed the caps array (as CAPS_SIZE) to suit
+        // the ffi call.
+        unsafe { ffi::usbredirparser_caps_set_cap(caps as *mut u32, cap as i32) }
     }
 
     pub fn do_read(&self) -> Result<()> {

@@ -2,6 +2,7 @@ use core::slice;
 use std::{
     convert::TryInto,
     ffi::{CStr, CString},
+    marker::PhantomData,
     ptr::NonNull,
 };
 
@@ -28,7 +29,7 @@ pub trait DeviceHandler {
 struct Inner<C, H> {
     host: Option<NonNull<ffi::usbredirhost>>,
     handler: H,
-    context: C,
+    phantom: PhantomData<C>,
 }
 
 unsafe impl<C, H> Sync for Inner<C, H> {}
@@ -55,7 +56,7 @@ impl<C: UsbContext, H: DeviceHandler> Device<C, H> {
         let flags = 0;
         let version = CString::new("usbredir-rs").unwrap();
         let mut inner = Box::new(Inner {
-            context: context.clone(),
+            phantom: PhantomData,
             host: None,
             handler,
         });

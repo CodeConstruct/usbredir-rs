@@ -172,7 +172,7 @@ impl Parser {
             0
         };
         let version = CString::new("usbredir-rs").unwrap();
-        let mut caps: u32 = 0;
+        let mut caps = [0u32; proto::CAPS_SIZE as usize];
         unsafe {
             ffi::usbredirparser_init(
                 parser,
